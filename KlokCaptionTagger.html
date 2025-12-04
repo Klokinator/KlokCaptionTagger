@@ -445,8 +445,8 @@
             activeModelProvider: Storage.getRaw('tp_model_provider') || DEFAULTS.modelProvider,
             activeModelId: Storage.getRaw('tp_model_id') || DEFAULTS.modelId,
             prompts: {
-                tagging: Storage.getRaw('tp_prompt_tag') || DEFAULT_PRESETS["FULL Caption (No focus)"].prompt,
-                captioning: Storage.getRaw('tp_prompt_caption') || DEFAULT_PRESETS["FULL Caption (No focus)"].prompt
+                tagging: Storage.getRaw('tp_prompt_tag') || DEFAULT_PRESETS["FULL Caption"].prompt,
+                captioning: Storage.getRaw('tp_prompt_caption') || DEFAULT_PRESETS["FULL Caption"].prompt
             },
             globalViewMode: Storage.getRaw('tp_global_view_mode') || 'caption',
             limits: {
