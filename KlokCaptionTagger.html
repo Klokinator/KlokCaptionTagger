@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Klok Caption Tagger v1 ⏰</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+    
+    <script src="config.js" onerror="window.configJsFailed=true"></script> 
+
+    <!-- NOTE: type="text/tailwindcss" is required for @apply to work with the CDN -->
+    <style type="text/tailwindcss">
+        @layer utilities {
+            body { font-family: 'Inter', sans-serif; }
+            ::-webkit-scrollbar { width: 8px; height: 8px; }
+            ::-webkit-scrollbar-track { background: #1f2937; }
+            ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+            ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+            
+            .spinner {
+                border: 2px solid #f3f3f3; border-top: 2px solid #6366f1;
+                border-radius: 50%; width: 16px; height: 16px;
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            
+            .collapsible-content { transition: max-height 0.3s ease-out; max-height: 0; overflow: hidden; }
+            .collapsible-content.expanded { max-height: 1000px; overflow-y: auto; }
+            .rotate-icon { transition: transform 0.3s ease; }
+            .rotate-icon.expanded { transform: rotate(180deg); }
+
+            /* Model Table Styles */
+            /* Default alignment center, First column left */
+            .model-table th { 
+                @apply px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider bg-gray-900 border-b border-gray-700 text-center; 
+            }
+            .model-table th:first-child { 
+                @apply text-left; 
+            }
+            
+            .model-table td { 
+                @apply px-4 py-3 whitespace-nowrap text-sm text-gray-300 border-b border-gray-700 transition-colors text-center; 
+            }
+            .model-table td:first-child { 
+                @apply text-left; 
+            }
+
+            /* Highlighting row on hover - Using explicit background for visibility */
+            .model-table tbody tr { 
+                transition: background-color 0.15s ease-in-out; 
+                cursor: pointer; 
+            }
+            .model-table tbody tr:hover { 
+                @apply bg-indigo-600; /* Brighter highlight */
+                background-color: rgba(79, 70, 229, 0.4); /* Fallback/Override */
+            } 
+            
+            /* Selected state */
+            .model-table tr.selected { 
+                @apply bg-indigo-900/60 border-l-4 border-indigo-400; 
+            }
+            .model-table tr.selected td:first-child { 
+                @apply text-indigo-300 font-bold; 
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 min-h-screen flex flex-col">
+
+    <!-- Floating Progress Bar -->
+    <div id="floating-progress" class="hidden fixed top-4 left-4 z-[90] bg-gray-800 border border-gray-600 rounded-lg shadow-2xl p-3 flex flex-col w-72 backdrop-blur-md bg-opacity-95">
+        <div class="flex justify-between items-center mb-2">
+            <div class="flex items-center gap-2">
+                <div class="spinner"></div>
+                <span id="floating-status" class="text-sm font-bold text-indigo-400">Processing...</span>
+            </div>
+            <span id="floating-counter" class="text-xs font-mono text-gray-300">0/0</span>
+        </div>
+        <div class="w-full bg-gray-700 rounded-full h-2 mb-2 overflow-hidden">
+            <div id="floating-bar" class="bg-indigo-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <button id="floating-stop-btn" class="w-full py-1 bg-red-900/40 hover:bg-red-900/80 text-red-200 text-xs border border-red-800/50 rounded transition-colors uppercase font-semibold">Stop Operation</button>
+    </div>
+
+    <!-- Notification Element -->
+    <div id="notification" class="hidden fixed top-5 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-gray-900 py-3 px-6 rounded-lg shadow-2xl z-[100] transition-all duration-300 font-bold text-center border-2 border-white">
+        <p id="notification-text"></p>
+    </div>
+
+    <div class="container mx-auto p-4 md:p-6 flex-grow">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-center mb-8 bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700 relative">
+            <div class="mb-4 md:mb-0 w-full md:w-1/3">
+                <h1 class="text-3xl font-bold text-white tracking-tight flex items-center gap-2">
+                    Klok Caption Tagger <span class="text-indigo-400 text-xl">v1</span> ⏰
+                </h1>
+            </div>
+
+            <!-- Centered Settings Button -->
+            <div class="w-full md:w-1/3 flex justify-center mb-4 md:mb-0">
+                <button id="open-settings-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-full font-bold shadow-lg border border-indigo-400 transition-transform transform hover:scale-105 flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    Model Settings
+                </button>
+            </div>
+
+            <!-- Right Side View Toggle -->
+            <div class="w-full md:w-1/3 flex justify-end">
+                <button id="global-view-toggle" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 border border-gray-600 shadow-sm">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    <span id="global-view-text">View: Captions</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Input Section -->
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8 border border-gray-700">
+            <h2 class="text-xl font-semibold mb-4 text-white flex items-center gap-2"><span class="bg-indigo-600 rounded-full w-6 h-6 flex items-center justify-center text-xs">1</span> Load Dataset</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                
+                <!-- Choose Folder -->
+                <label class="flex flex-col items-center justify-center p-8 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 hover:border-indigo-500 rounded-xl cursor-pointer transition-all group">
+                    <svg class="w-10 h-10 mb-3 text-gray-400 group-hover:text-indigo-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                    <span class="font-semibold text-gray-300">Choose Folder</span>
+                    <span class="text-xs text-gray-500 mt-1">Recursive Loading</span>
+                    <input id="folder-upload" type="file" class="hidden" webkitdirectory directory multiple>
+                </label>
+
+                <!-- Choose Images -->
+                <label class="flex flex-col items-center justify-center p-8 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 hover:border-indigo-500 rounded-xl cursor-pointer transition-all group">
+                    <svg class="w-10 h-10 mb-3 text-gray-400 group-hover:text-indigo-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    <span class="font-semibold text-gray-300">Upload Images</span>
+                    <span class="text-xs text-gray-500 mt-1">Flat Files (PNG/JPG)</span>
+                    <input id="image-upload" type="file" class="hidden" multiple accept="image/png, image/jpeg, image/webp">
+                </label>
+
+                <!-- Upload Zip -->
+                <label class="flex flex-col items-center justify-center p-8 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 hover:border-indigo-500 rounded-xl cursor-pointer transition-all group">
+                    <svg class="w-10 h-10 mb-3 text-gray-400 group-hover:text-indigo-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <span class="font-semibold text-gray-300">Upload ZIP</span>
+                    <span class="text-xs text-gray-500 mt-1">Images + .txt files</span>
+                    <input id="zip-upload" type="file" class="hidden" accept=".zip">
+                </label>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div id="tagger-section" class="hidden">
+            <div class="bg-gray-800 p-4 rounded-lg shadow-lg mb-6 flex flex-col xl:flex-row gap-4 justify-between items-center border border-gray-700 sticky top-2 z-30 backdrop-blur-md bg-opacity-95">
+                
+                <!-- Input Layout -->
+                <div class="flex items-center gap-4 w-full xl:w-auto overflow-x-auto pb-2 xl:pb-0">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] uppercase font-bold text-gray-400 ml-1">Trigger Word</label>
+                        <input type="text" id="trigger-word-input" placeholder="e.g. ohwx" class="bg-gray-900 border border-gray-600 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-indigo-500 w-36 outline-none text-white">
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 flex-wrap justify-center mt-2 xl:mt-0">
+                    <button id="tag-all-button" class="bg-teal-700 hover:bg-teal-600 text-white font-medium py-2 px-4 rounded-lg shadow-sm text-sm border border-teal-600 transition-colors">Tag All</button>
+                    <button id="caption-all-button" class="bg-purple-700 hover:bg-purple-600 text-white font-medium py-2 px-4 rounded-lg shadow-sm text-sm border border-purple-600 transition-colors">Caption All</button>
+                    <div class="h-8 w-px bg-gray-600 mx-2 hidden md:block"></div>
+                    <button id="clear-tags-button" class="bg-orange-900/50 hover:bg-orange-800 text-orange-200 font-medium py-2 px-4 rounded-lg shadow-sm text-sm border border-orange-800 transition-colors">Clear</button>
+                    <button id="reset-button" class="bg-red-900/50 hover:bg-red-800 text-red-200 font-medium py-2 px-4 rounded-lg shadow-sm text-sm border border-red-800 transition-colors">Reset</button>
+                    
+                    <div class="h-8 w-px bg-gray-600 mx-2 hidden md:block"></div>
+                    
+                    <button id="export-zip-button" class="bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform hover:scale-105 border border-blue-600">Save to Zip</button>
+                    <button id="export-folder-button" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform hover:scale-105 border border-indigo-500">Save to Folder</button>
+                </div>
+            </div>
+
+            <!-- Tag Viewer -->
+            <div id="tag-viewer-section" class="bg-gray-800 rounded-lg shadow-md mb-6 overflow-hidden border border-gray-700 hidden">
+                <div id="tag-viewer-header" class="p-3 bg-gray-750 flex justify-between items-center cursor-pointer hover:bg-gray-700 transition-colors">
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm font-semibold text-gray-300">Tag Frequency</span>
+                        <span id="total-tags-badge" class="bg-gray-700 text-indigo-300 text-xs px-2 py-0.5 rounded-full">0</span>
+                    </div>
+                    <svg id="tag-viewer-arrow" class="w-4 h-4 text-gray-500 rotate-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+                <div id="tag-viewer-content" class="collapsible-content bg-gray-900/50">
+                    <div id="tag-viewer-list" class="p-4 flex flex-wrap gap-2 max-h-60 overflow-y-auto"></div>
+                </div>
+            </div>
+
+            <!-- Image Grid -->
+            <div id="image-grid" class="grid grid-cols-1 gap-4"></div>
+        </div>
+
+        <!-- Placeholder -->
+        <div id="placeholder" class="text-center py-24 bg-gray-800/50 rounded-lg border-2 border-dashed border-gray-700">
+            <div class="text-6xl mb-4">⏰</div>
+            <h3 class="text-xl font-medium text-gray-300">It's Taggin' Time</h3>
+            <p class="text-gray-500 mt-2">Load your images or folder to begin.</p>
+        </div>
+
+    </div>
+
+    <!-- ===== MODALS ===== -->
+
+    <!-- API Settings Modal -->
+    <div id="api-settings-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full flex flex-col max-h-[90vh] border border-gray-600">
+            <!-- Modal Header -->
+            <div class="p-6 border-b border-gray-700 bg-gray-900/50">
+                <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                    <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    Model Settings
+                </h3>
+            </div>
+            
+            <!-- Modal Body (Scrollable) -->
+            <div class="flex-grow overflow-y-auto p-6 space-y-6">
+                
+                <!-- Provider Selection -->
+                <div>
+                    <label class="block text-gray-400 text-xs uppercase font-bold mb-1">Active Model Provider</label>
+                    <select id="model-provider-select" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none">
+                        <option value="gemini">Google Gemini</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic</option>
+                    </select>
+                </div>
+
+                <!-- API Keys -->
+                <div id="key-section" class="p-4 bg-gray-700/30 rounded-lg border border-gray-700">
+                    <div id="key-input-gemini" class="key-group">
+                        <label class="block text-gray-400 text-xs uppercase font-bold mb-1">Gemini API Key</label>
+                        <input type="password" id="api-key-gemini" placeholder="AIzaSy..." class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none">
+                        <p class="text-[10px] text-gray-500 mt-1">Get key at <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-indigo-400 underline">Google AI Studio</a>. Free tier available.</p>
+                    </div>
+
+                    <div id="key-input-openai" class="key-group hidden">
+                        <label class="block text-gray-400 text-xs uppercase font-bold mb-1">OpenAI API Key</label>
+                        <input type="password" id="api-key-openai" placeholder="sk-..." class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none">
+                    </div>
+
+                    <div id="key-input-anthropic" class="key-group hidden">
+                        <label class="block text-gray-400 text-xs uppercase font-bold mb-1">Anthropic API Key</label>
+                        <input type="password" id="api-key-anthropic" placeholder="sk-ant-..." class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:border-indigo-500 outline-none">
+                        <p class="text-[10px] text-yellow-500 mt-1">⚠️ Requires enabling dangerous browser usage in headers (Use at own risk).</p>
+                    </div>
+                </div>
+
+                <!-- Model Sheet View -->
+                <div>
+                    <label class="block text-gray-400 text-xs uppercase font-bold mb-2">Select Model</label>
+                    <div class="overflow-x-auto border border-gray-700 rounded-lg bg-gray-800">
+                        <table class="min-w-full divide-y divide-gray-700 model-table">
+                            <thead id="model-table-head">
+                                <!-- Dynamic Headers -->
+                            </thead>
+                            <tbody id="model-table-body" class="divide-y divide-gray-700">
+                                <!-- Dynamic Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-6 border-t border-gray-700 bg-gray-900/50 flex justify-between items-center">
+                 <div class="text-xs text-gray-500">
+                    Selected: <span id="selected-model-display" class="text-indigo-400 font-mono font-bold">None</span>
+                 </div>
+                 <div class="flex gap-3">
+                    <button id="close-settings-btn" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors">Close</button>
+                    <button id="save-settings-btn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded transition-colors">Save Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- General Task Modal (Merged Tag/Caption logic) -->
+    <div id="task-modal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[80] p-2 md:p-6">
+        <div class="bg-gray-800 rounded-xl shadow-2xl w-full h-[95vh] md:h-[90vh] max-w-5xl flex flex-col border border-gray-600 overflow-hidden">
+            
+            <!-- Modal Header -->
+            <div class="p-4 md:p-6 border-b border-gray-700 flex justify-between items-center bg-gray-900/50">
+                <h3 id="task-modal-title" class="text-2xl font-bold text-white">Auto Configuration</h3>
+                <button id="task-modal-close" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="flex-grow flex flex-col md:flex-row overflow-hidden">
+                
+                <!-- Left: Config -->
+                <div id="task-config-panel" class="w-full md:w-1/3 p-6 overflow-y-auto border-r border-gray-700 bg-gray-800">
+                    <div class="mb-6">
+                         <label class="block text-gray-400 text-xs uppercase font-bold mb-2">Operation Mode</label>
+                         <div class="space-y-3 bg-gray-900/50 p-3 rounded-lg border border-gray-700">
+                            <label class="flex items-center space-x-3 cursor-pointer">
+                                <input type="radio" name="task-mode" value="ignore" checked class="form-radio text-indigo-600 h-4 w-4 bg-gray-900 border-gray-600 focus:ring-indigo-500">
+                                <div>
+                                    <span class="block text-gray-200 text-sm font-medium">Ignore Existing</span>
+                                    <span class="block text-gray-500 text-xs">Skip images that already have data</span>
+                                </div>
+                            </label>
+                            <label class="flex items-center space-x-3 cursor-pointer">
+                                <input type="radio" name="task-mode" value="append" class="form-radio text-indigo-600 h-4 w-4 bg-gray-900 border-gray-600 focus:ring-indigo-500">
+                                <div>
+                                    <span class="block text-gray-200 text-sm font-medium">Append</span>
+                                    <span class="block text-gray-500 text-xs">Add new tags/text to end</span>
+                                </div>
+                            </label>
+                            <label class="flex items-center space-x-3 cursor-pointer">
+                                <input type="radio" name="task-mode" value="overwrite" class="form-radio text-indigo-600 h-4 w-4 bg-gray-900 border-gray-600 focus:ring-indigo-500">
+                                <div>
+                                    <span class="block text-gray-200 text-sm font-medium">Overwrite</span>
+                                    <span class="block text-gray-500 text-xs">Completely replace existing data</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                         <label class="block text-gray-400 text-xs uppercase font-bold mb-2" id="task-limit-label">Limits</label>
+                         <input type="number" id="task-limit-input" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                         <p class="text-xs text-gray-500 mt-1" id="task-limit-desc">Max words/tags</p>
+                    </div>
+                </div>
+
+                <!-- Right: Prompt Editor -->
+                <div class="w-full md:w-2/3 p-6 flex flex-col bg-gray-900">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-gray-400 text-xs uppercase font-bold">System Prompt</label>
+                        <div class="flex gap-2">
+                            <select id="preset-selector" class="bg-gray-800 border border-gray-600 text-xs text-white rounded px-2 py-1 outline-none">
+                                <option value="">Load Preset...</option>
+                            </select>
+                            <button id="save-preset-btn" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-gray-300 border border-gray-600">Save</button>
+                             <button id="delete-preset-btn" class="text-xs bg-gray-700 hover:bg-red-900 px-2 py-1 rounded text-gray-300 border border-gray-600">&times;</button>
+                        </div>
+                    </div>
+                    <textarea id="task-prompt-input" class="flex-grow w-full bg-gray-800 border border-gray-700 rounded p-4 text-sm text-gray-300 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-900 font-mono resize-none leading-relaxed"></textarea>
+                    <p class="text-xs text-gray-600 mt-2">Tips: Use specific keywords. For captions, specify if you want natural language or list style.</p>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 border-t border-gray-700 flex justify-end gap-3 bg-gray-800">
+                <button id="task-cancel-btn" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors border border-gray-600">Cancel</button>
+                <button id="task-start-btn" class="px-8 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded shadow-lg transition-transform transform active:scale-95 border border-indigo-500">Start Processing</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Preview Modal -->
+    <div id="preview-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[110] p-4 cursor-zoom-out">
+        <img id="preview-image" src="" class="max-w-full max-h-full object-contain rounded shadow-2xl">
+        <button id="preview-close" class="absolute top-5 right-5 text-white/50 hover:text-white text-5xl font-light">&times;</button>
+    </div>
+
+    <!-- Cropper Modal -->
+    <div id="crop-modal" class="hidden fixed inset-0 bg-gray-900 z-[120] flex flex-col">
+        <div class="flex-grow relative bg-black">
+            <div class="h-full w-full flex items-center justify-center p-4">
+                <img id="crop-image" src="" class="max-w-full max-h-full block">
+            </div>
+        </div>
+        <div class="bg-gray-800 p-4 flex justify-center gap-4 border-t border-gray-700">
+            <button id="crop-cancel" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-8 rounded-lg border border-gray-600">Cancel</button>
+            <button id="crop-save" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-8 rounded-lg border border-indigo-500">Apply Crop</button>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loader" class="hidden fixed inset-0 bg-black/80 z-[130] flex items-center justify-center">
+        <div class="flex flex-col items-center">
+             <div class="spinner w-12 h-12 border-4 border-t-indigo-500 mb-4"></div>
+            <p id="loader-text" class="text-white text-lg font-mono animate-pulse">Processing...</p>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIG & STATE MANAGEMENT
+        // ==========================================
+        
+        // Defaults
+        const DEFAULTS = {
+            tagPrompt: "Describe this image with precise, comma-separated tags for Stable Diffusion training. Focus on: Character details, clothing, hair, accessories, background, lighting, and composition. Put the most important visual elements first.",
+            captionPrompt: "Write a detailed, natural language caption for this image. Describe the subject, their action, the camera angle, the lighting, and the background environment. Use the character name if known.",
+            modelProvider: "gemini",
+            modelId: "gemini-2.0-flash", 
+            tagLimit: 30,
+            captionLimit: 50
+        };
+
+        const Storage = {
+            get: (key, def) => {
+                try { return JSON.parse(localStorage.getItem(key)) || def; } 
+                catch { return def; }
+            },
+            set: (key, val) => localStorage.setItem(key, JSON.stringify(val)),
+            getRaw: (key) => localStorage.getItem(key) || "",
+            setRaw: (key, val) => localStorage.setItem(key, val)
+        };
+
+        // App State
+        let state = {
+            dataset: [], // { file, tags, type: 'tags'|'caption', hash, relativePath: string }
+            triggerWord: "",
+            processing: false,
+            currentTask: null,
+            activeModelProvider: Storage.getRaw('tp_model_provider') || DEFAULTS.modelProvider,
+            activeModelId: Storage.getRaw('tp_model_id') || DEFAULTS.modelId,
+            prompts: {
+                tagging: Storage.getRaw('tp_prompt_tag') || DEFAULTS.tagPrompt,
+                captioning: Storage.getRaw('tp_prompt_caption') || DEFAULTS.captionPrompt
+            },
+            // Default to 'caption' now per request
+            globalViewMode: Storage.getRaw('tp_global_view_mode') || 'caption',
+            limits: {
+                tagging: Storage.get('tp_limit_tag', DEFAULTS.tagLimit),
+                captioning: Storage.get('tp_limit_caption', DEFAULTS.captionLimit)
+            }
+        };
+
+        // MODEL DATA LISTS
+        const MODELS = {
+            gemini: [
+                { id: "gemini-2.0-flash-lite", name: "gemini-2.0-flash-lite", category: "Text-out", rpm: "4k", tpm: "4m", rpd: "Unltd" },
+                { id: "gemini-2.0-flash", name: "gemini-2.0-flash", category: "Text-out", rpm: "2k", tpm: "4m", rpd: "Unltd" },
+                { id: "gemini-2.5-flash-lite", name: "gemini-2.5-flash-lite", category: "Text-out", rpm: "4k", tpm: "4m", rpd: "Unltd" },
+                { id: "gemini-2.0-flash-live", name: "gemini-2.0-flash-live", category: "Live API", rpm: "Unltd", tpm: "4m", rpd: "Unltd" },
+                { id: "gemini-2.5-flash-live", name: "gemini-2.5-flash-live", category: "Live API", rpm: "Unltd", tpm: "1m", rpd: "Unltd" }
+            ],
+            openai: [
+                { id: "gpt-5-nano", name: "gpt-5-nano", in: "$0.05", out: "$0.40" },
+                { id: "gpt-4.1-nano", name: "gpt-4.1-nano", in: "$0.10", out: "$0.40" },
+                { id: "gpt-4o-mini", name: "gpt-4o-mini", in: "$0.15", out: "$0.60" }
+            ],
+            anthropic: [
+                { id: "claude-3-haiku-20240307", name: "Claude Haiku 3", in: "$0.25", out: "$1.25" },
+                { id: "claude-3-5-haiku-latest", name: "Claude Haiku 3.5", in: "$0.80", out: "$4.00" },
+                { id: "claude-4.5-haiku", name: "Claude Haiku 4.5", in: "$1.00", out: "$5.00" }
+            ]
+        };
+
+        // Elements
+        const El = {
+            grid: document.getElementById('image-grid'),
+            placeholder: document.getElementById('placeholder'),
+            taggerSection: document.getElementById('tagger-section'),
+            notification: document.getElementById('notification'),
+            notifText: document.getElementById('notification-text'),
+            taskModal: document.getElementById('task-modal'),
+            apiModal: document.getElementById('api-settings-modal'),
+            settingsBtn: document.getElementById('open-settings-btn'),
+            globalViewToggle: document.getElementById('global-view-toggle'),
+            globalViewText: document.getElementById('global-view-text'),
+            floatingProgress: document.getElementById('floating-progress'),
+            floatingCounter: document.getElementById('floating-counter'),
+            floatingBar: document.getElementById('floating-bar'),
+            floatingStopBtn: document.getElementById('floating-stop-btn'),
+            floatingStatus: document.getElementById('floating-status'),
+            // Settings Elements
+            modelProviderSelect: document.getElementById('model-provider-select'),
+            modelTableHead: document.getElementById('model-table-head'),
+            modelTableBody: document.getElementById('model-table-body'),
+            selectedModelDisplay: document.getElementById('selected-model-display')
+        };
+
+        let cropperInstance = null;
+        let cropIndex = -1;
+
+        // ==========================================
+        // INITIALIZATION
+        // ==========================================
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            setupEventListeners();
+            loadPresets();
+            updateGlobalViewButtonText();
+            renderModelTable(); // Render table on load
+        });
+
+        function loadSettings() {
+            if (typeof userApiKey !== 'undefined' && !Storage.getRaw('tp_api_key_gemini')) {
+                Storage.setRaw('tp_api_key_gemini', userApiKey);
+            }
+            
+            // Sync UI
+            El.modelProviderSelect.value = state.activeModelProvider;
+            El.selectedModelDisplay.textContent = state.activeModelId;
+
+            document.getElementById('api-key-gemini').value = Storage.getRaw('tp_api_key_gemini');
+            document.getElementById('api-key-openai').value = Storage.getRaw('tp_api_key_openai');
+            document.getElementById('api-key-anthropic').value = Storage.getRaw('tp_api_key_anthropic');
+            
+            toggleKeyInputs(state.activeModelProvider);
+        }
+
+        function setupEventListeners() {
+            // Uploads
+            document.getElementById('image-upload').addEventListener('change', handleImageUpload);
+            document.getElementById('folder-upload').addEventListener('change', handleFolderUpload);
+            document.getElementById('zip-upload').addEventListener('change', handleZipUpload);
+
+            // Toolbar
+            document.getElementById('reset-button').addEventListener('click', handleReset);
+            document.getElementById('clear-tags-button').addEventListener('click', () => {
+                if(confirm("Clear all tags/captions?")) {
+                    state.dataset.forEach(i => i.tags = state.triggerWord || "");
+                    renderGrid();
+                }
+            });
+            document.getElementById('export-folder-button').addEventListener('click', handleFolderExport);
+            document.getElementById('export-zip-button').addEventListener('click', handleZipExport);
+
+            document.getElementById('trigger-word-input').addEventListener('input', (e) => {
+                updateTriggerWord(e.target.value);
+            });
+            
+            // Settings
+            El.settingsBtn.addEventListener('click', () => {
+                El.apiModal.classList.remove('hidden');
+                renderModelTable();
+            });
+            document.getElementById('close-settings-btn').addEventListener('click', () => El.apiModal.classList.add('hidden'));
+            document.getElementById('save-settings-btn').addEventListener('click', saveApiSettings);
+            
+            El.modelProviderSelect.addEventListener('change', (e) => {
+                state.activeModelProvider = e.target.value;
+                toggleKeyInputs(state.activeModelProvider);
+                renderModelTable();
+                // Reset model selection to first in list when provider changes
+                if (MODELS[state.activeModelProvider].length > 0) {
+                     state.activeModelId = MODELS[state.activeModelProvider][0].id;
+                     El.selectedModelDisplay.textContent = state.activeModelId;
+                }
+            });
+
+            // Task Modal
+            document.getElementById('tag-all-button').addEventListener('click', () => openTaskModal('tagging'));
+            document.getElementById('caption-all-button').addEventListener('click', () => openTaskModal('captioning'));
+            document.getElementById('task-modal-close').addEventListener('click', closeTaskModal);
+            document.getElementById('task-cancel-btn').addEventListener('click', closeTaskModal);
+            document.getElementById('task-start-btn').addEventListener('click', startBatchTask);
+            El.floatingStopBtn.addEventListener('click', () => {
+                state.processing = false;
+                El.floatingStopBtn.textContent = "Stopping...";
+            });
+
+            // Presets
+            document.getElementById('save-preset-btn').addEventListener('click', saveCurrentPreset);
+            document.getElementById('delete-preset-btn').addEventListener('click', deleteCurrentPreset);
+            document.getElementById('preset-selector').addEventListener('change', loadSelectedPreset);
+
+            // Global View
+            El.globalViewToggle.addEventListener('click', toggleGlobalView);
+
+            // Modals
+            document.getElementById('preview-close').addEventListener('click', () => document.getElementById('preview-modal').classList.add('hidden'));
+            document.getElementById('preview-modal').addEventListener('click', (e) => { if(e.target.id === 'preview-modal') e.target.classList.add('hidden'); });
+            
+            // Cropper
+            document.getElementById('crop-save').addEventListener('click', saveCrop);
+            document.getElementById('crop-cancel').addEventListener('click', cancelCrop);
+            
+            // Tag Viewer
+            document.getElementById('tag-viewer-header').addEventListener('click', () => {
+                document.getElementById('tag-viewer-content').classList.toggle('expanded');
+                document.getElementById('tag-viewer-arrow').classList.toggle('expanded');
+            });
+        }
+
+        // ==========================================
+        // SETTINGS & MODEL TABLE
+        // ==========================================
+
+        function toggleKeyInputs(provider) {
+            document.querySelectorAll('.key-group').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`key-input-${provider}`).classList.remove('hidden');
+        }
+
+        function renderModelTable() {
+            const provider = state.activeModelProvider;
+            const data = MODELS[provider];
+            
+            El.modelTableHead.innerHTML = '';
+            El.modelTableBody.innerHTML = '';
+
+            // Render Headers
+            if (provider === 'gemini') {
+                El.modelTableHead.innerHTML = `
+                    <tr>
+                        <th>Model Name</th>
+                        <th>Category</th>
+                        <th>RPM</th>
+                        <th>TPM</th>
+                        <th>RPD</th>
+                    </tr>
+                `;
+            } else {
+                El.modelTableHead.innerHTML = `
+                    <tr>
+                        <th>Model Name</th>
+                        <th>Input / 1M</th>
+                        <th>Output / 1M</th>
+                    </tr>
+                `;
+            }
+
+            // Render Rows
+            data.forEach(model => {
+                const tr = document.createElement('tr');
+                if (model.id === state.activeModelId) tr.classList.add('selected');
+                
+                tr.onclick = () => {
+                    state.activeModelId = model.id;
+                    El.selectedModelDisplay.textContent = model.id;
+                    renderModelTable(); // Re-render to update selected class
+                };
+
+                if (provider === 'gemini') {
+                    tr.innerHTML = `
+                        <td>${model.name}</td>
+                        <td>${model.category}</td>
+                        <td>${model.rpm}</td>
+                        <td>${model.tpm}</td>
+                        <td>${model.rpd}</td>
+                    `;
+                } else {
+                    tr.innerHTML = `
+                        <td>${model.name}</td>
+                        <td>${model.in}</td>
+                        <td>${model.out}</td>
+                    `;
+                }
+                El.modelTableBody.appendChild(tr);
+            });
+        }
+
+        function saveApiSettings() {
+            const provider = El.modelProviderSelect.value;
+            // Save state
+            Storage.setRaw('tp_model_provider', provider);
+            Storage.setRaw('tp_model_id', state.activeModelId);
+            
+            // Save keys
+            Storage.setRaw('tp_api_key_gemini', document.getElementById('api-key-gemini').value.trim());
+            Storage.setRaw('tp_api_key_openai', document.getElementById('api-key-openai').value.trim());
+            Storage.setRaw('tp_api_key_anthropic', document.getElementById('api-key-anthropic').value.trim());
+            
+            El.apiModal.classList.add('hidden');
+            showNotification("Settings & Model Saved", 2000);
+        }
+
+        // ==========================================
+        // DATA PROCESSING (Common)
+        // ==========================================
+
+        async function handleImageUpload(e) {
+            if(!e.target.files.length) return;
+            showLoader("Processing images...");
+            const newItems = [];
+            const existingHashes = new Set(state.dataset.map(i => i.hash));
+            for (const file of e.target.files) {
+                const hash = await calculateHash(file);
+                if (!existingHashes.has(hash)) {
+                    let finalFile = file;
+                    if(file.name.toLowerCase().endsWith('.jpeg')) {
+                        finalFile = new File([file], file.name.replace(/.jpeg$/i, '.jpg'), {type: file.type});
+                    }
+                    // For flat upload, relativePath is just name
+                    newItems.push({ 
+                        file: finalFile, 
+                        tags: state.triggerWord || "", 
+                        type: 'caption', // Default to caption per request
+                        hash: hash,
+                        relativePath: finalFile.name 
+                    });
+                    existingHashes.add(hash);
+                }
+            }
+            state.dataset.push(...newItems);
+            hideLoader();
+            renderGrid();
+        }
+
+        // New Folder Upload
+        async function handleFolderUpload(e) {
+            if(!e.target.files.length) return;
+            showLoader("Scanning folder...");
+            const newItems = [];
+            const existingHashes = new Set(state.dataset.map(i => i.hash));
+            
+            for (const file of e.target.files) {
+                // Filter for images
+                if(!file.name.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/)) continue;
+
+                const hash = await calculateHash(file);
+                if (!existingHashes.has(hash)) {
+                    let finalFile = file;
+                    if(file.name.toLowerCase().endsWith('.jpeg')) {
+                        finalFile = new File([file], file.name.replace(/.jpeg$/i, '.jpg'), {type: file.type});
+                    }
+                    
+                    // webkitRelativePath contains the full path from the root folder selected
+                    // e.g., "MyDataset/Subfolder/img.png"
+                    newItems.push({ 
+                        file: finalFile, 
+                        tags: state.triggerWord || "", 
+                        type: 'caption', 
+                        hash: hash,
+                        relativePath: file.webkitRelativePath || file.name
+                    });
+                    existingHashes.add(hash);
+                }
+            }
+            state.dataset.push(...newItems);
+            hideLoader();
+            renderGrid();
+        }
+
+        async function handleZipUpload(e) {
+            const file = e.target.files[0];
+            if(!file) return;
+            showLoader("Unzipping & Parsing...");
+            try {
+                const zip = await JSZip.loadAsync(file);
+                const imgFiles = {};
+                const txtFiles = {};
+                for(let filename in zip.files) {
+                    if(zip.files[filename].dir) continue;
+                    const low = filename.toLowerCase();
+                    // Basic base extraction for matching
+                    const base = filename.substring(0, filename.lastIndexOf('.'));
+                    
+                    if(low.match(/\.(jpg|jpeg|png|webp)$/)) {
+                        imgFiles[filename] = { obj: zip.files[filename], base: base };
+                    } else if(low.endsWith('.txt')) {
+                        txtFiles[base] = zip.files[filename]; // Key by base no extension for matching
+                    }
+                }
+                const newItems = [];
+                const existingHashes = new Set(state.dataset.map(i => i.hash));
+                
+                for(let filename in imgFiles) {
+                    const entry = imgFiles[filename];
+                    const blob = await entry.obj.async('blob');
+                    const f = new File([blob], filename.split('/').pop(), {type: blob.type});
+                    const hash = await calculateHash(f);
+                    
+                    if(!existingHashes.has(hash)) {
+                        let content = "";
+                        // Try to find matching txt
+                        if(txtFiles[entry.base]) content = await txtFiles[entry.base].async('string');
+                        
+                        if(state.triggerWord && !content.startsWith(state.triggerWord)) {
+                            content = content ? `${state.triggerWord}, ${content}` : state.triggerWord;
+                        }
+                        const isCaption = content.includes(' ') && !content.includes(','); 
+                        
+                        newItems.push({ 
+                            file: f, 
+                            tags: content.trim(), 
+                            type: isCaption ? 'caption' : 'tags', 
+                            hash: hash,
+                            relativePath: filename // Preserve zip structure
+                        });
+                        existingHashes.add(hash);
+                    }
+                }
+                state.dataset.push(...newItems);
+                renderGrid();
+            } catch(err) {
+                console.error(err);
+                showNotification("Failed to load ZIP", 3000, true);
+            }
+            hideLoader();
+        }
+
+        function updateTriggerWord(newVal) {
+            newVal = newVal.trim();
+            const oldVal = state.triggerWord;
+            state.dataset.forEach(item => {
+                let tags = item.tags.trim();
+                if(oldVal && tags.startsWith(oldVal)) {
+                    tags = tags.substring(oldVal.length).trim();
+                    if(tags.startsWith(',') || tags.startsWith(' ')) tags = tags.substring(1).trim();
+                }
+                if(newVal) tags = tags ? `${newVal}, ${tags}` : newVal;
+                item.tags = tags;
+            });
+            state.triggerWord = newVal;
+            renderGrid(); 
+        }
+
+        function renderGrid() {
+            if(!state.dataset.length) {
+                El.taggerSection.classList.add('hidden');
+                El.placeholder.classList.remove('hidden');
+                return;
+            }
+            El.taggerSection.classList.remove('hidden');
+            El.placeholder.classList.add('hidden');
+            El.grid.innerHTML = '';
+            
+            state.dataset.forEach((item, idx) => {
+                const card = document.createElement('div');
+                card.className = "bg-gray-800 rounded-lg shadow-md border border-gray-700 flex flex-col md:flex-row h-auto md:h-64 overflow-hidden relative";
+                const imgUrl = URL.createObjectURL(item.file);
+                let renderType = item.type;
+                if(state.globalViewMode === 'tags') renderType = 'tags';
+                if(state.globalViewMode === 'caption') renderType = 'caption';
+                const isTags = renderType === 'tags';
+                
+                card.innerHTML = `
+                    <div class="relative w-full md:w-64 h-48 md:h-full flex-shrink-0 bg-gray-900 group">
+                        <img src="${imgUrl}" class="w-full h-full object-contain cursor-zoom-in" onclick="showPreview('${imgUrl}')">
+                        <div class="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded border border-white/10">${idx+1}</div>
+                        <div class="absolute bottom-0 left-0 w-full bg-black/70 p-2 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button class="text-xs text-white hover:text-indigo-300 font-medium" onclick="initCrop(${idx})">Crop</button>
+                            <button class="text-xs text-white hover:text-red-300 font-medium" onclick="deleteItem(${idx})">Delete</button>
+                        </div>
+                    </div>
+                    <div class="flex-grow flex flex-col p-3 min-w-0">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex gap-2">
+                                <button onclick="flipCardType(${idx})" class="text-xs uppercase font-bold px-2 py-1 rounded transition-colors ${isTags ? 'bg-indigo-900 text-indigo-200 hover:bg-indigo-800' : 'bg-purple-900 text-purple-200 hover:bg-purple-800'}">
+                                    ${isTags ? 'Tags Mode' : 'Caption Mode'}
+                                </button>
+                                <span class="text-xs text-gray-500 py-1 font-mono">${(item.file.size/1024).toFixed(0)}KB</span>
+                            </div>
+                            <div class="flex gap-1">
+                                <button class="p-1 hover:bg-gray-700 rounded text-indigo-400 transition-colors" title="Auto Tag" onclick="singleAutoTag(${idx})">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                                </button>
+                                <button class="p-1 hover:bg-gray-700 rounded text-purple-400 transition-colors" title="Auto Caption" onclick="singleAutoCaption(${idx})">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="relative flex-grow bg-gray-900 rounded border border-gray-700 overflow-hidden">
+                            ${isTags ? renderTagArea(idx, item.tags) : renderTextArea(idx, item.tags)}
+                        </div>
+                    </div>
+                `;
+                El.grid.appendChild(card);
+            });
+            updateTagViewer();
+        }
+
+        function renderTagArea(idx, text) {
+            const tags = text.split(',').map(t => t.trim()).filter(Boolean);
+            let html = `<div class="h-full w-full p-2 overflow-y-auto flex flex-wrap content-start gap-1" id="tag-area-${idx}">`;
+            tags.forEach(tag => {
+                const isTrigger = state.triggerWord && tag === state.triggerWord;
+                html += `
+                <div class="flex items-center text-xs px-2 py-1 rounded-full ${isTrigger ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200'} border border-gray-600 group hover:border-indigo-400 transition-colors cursor-default">
+                    <span contenteditable="true" onblur="editTag(${idx}, '${tag}', this.innerText)" class="outline-none">${tag}</span>
+                    <button class="ml-1 text-gray-500 hover:text-red-400 font-bold" onclick="removeTag(${idx}, '${tag}')">&times;</button>
+                </div>`;
+            });
+            html += `<input type="text" placeholder="+" class="bg-transparent text-xs text-white min-w-[50px] outline-none ml-1 placeholder-gray-600 focus:placeholder-gray-400" onkeydown="addTagKey(event, ${idx})">`;
+            html += `</div>`;
+            return html;
+        }
+
+        function renderTextArea(idx, text) {
+            return `<textarea class="w-full h-full bg-gray-900 text-gray-300 p-2 text-sm outline-none resize-none leading-relaxed" oninput="updateText(${idx}, this.value)">${text}</textarea>`;
+        }
+
+        function toggleGlobalView() {
+            if(state.globalViewMode === 'mixed') state.globalViewMode = 'tags';
+            else if(state.globalViewMode === 'tags') state.globalViewMode = 'caption';
+            else state.globalViewMode = 'mixed';
+            Storage.setRaw('tp_global_view_mode', state.globalViewMode);
+            updateGlobalViewButtonText();
+            renderGrid();
+        }
+
+        function updateGlobalViewButtonText() {
+            const map = { mixed: "View: Mixed", tags: "View: Tags", caption: "View: Captions" };
+            El.globalViewText.textContent = map[state.globalViewMode];
+        }
+
+        function flipCardType(idx) {
+            state.dataset[idx].type = state.dataset[idx].type === 'tags' ? 'caption' : 'tags';
+            renderGrid();
+        }
+
+        // ==========================================
+        // DATA MANIPULATION (Helpers)
+        // ==========================================
+        function updateText(idx, val) { state.dataset[idx].tags = val; }
+        function removeTag(idx, tagToRemove) {
+            let tags = state.dataset[idx].tags.split(',').map(t => t.trim());
+            state.dataset[idx].tags = tags.filter(t => t !== tagToRemove).join(', ');
+            renderGrid();
+        }
+        function editTag(idx, oldVal, newVal) {
+            let tags = state.dataset[idx].tags.split(',').map(t => t.trim());
+            const i = tags.indexOf(oldVal);
+            if(i > -1) { tags[i] = newVal.trim(); state.dataset[idx].tags = tags.join(', '); }
+        }
+        function addTagKey(e, idx) {
+            if(e.key === 'Enter' || e.key === ',') {
+                e.preventDefault();
+                const val = e.target.value.trim();
+                if(val) {
+                    let tags = state.dataset[idx].tags.split(',').map(t => t.trim()).filter(Boolean);
+                    if(!tags.includes(val)) tags.push(val);
+                    state.dataset[idx].tags = tags.join(', ');
+                    renderGrid();
+                }
+            }
+        }
+        function deleteItem(idx) { state.dataset.splice(idx, 1); renderGrid(); }
+        function handleReset() {
+            if(confirm("Reset everything?")) { state.dataset = []; state.triggerWord = ""; renderGrid(); }
+        }
+
+        // ==========================================
+        // BATCH & API PROCESSING
+        // ==========================================
+
+        function openTaskModal(type) {
+            if(!state.dataset.length) return showNotification("No images loaded", 2000, true);
+            state.currentTask = type;
+            document.getElementById('task-modal-title').textContent = type === 'tagging' ? 'Auto Tag Images' : 'Auto Caption Images';
+            const savedLimit = state.limits[type];
+            document.getElementById('task-limit-input').value = savedLimit;
+            document.getElementById('task-limit-desc').textContent = type === 'tagging' ? "Max Tags" : "Max Words";
+            document.getElementById('task-prompt-input').value = state.prompts[type];
+            El.taskModal.classList.remove('hidden');
+        }
+
+        function closeTaskModal() {
+            if(state.currentTask) {
+                state.prompts[state.currentTask] = document.getElementById('task-prompt-input').value;
+                Storage.setRaw(state.currentTask === 'tagging' ? 'tp_prompt_tag' : 'tp_prompt_caption', state.prompts[state.currentTask]);
+            }
+            El.taskModal.classList.add('hidden');
+        }
+
+        async function fetchWithRetry(fn, retries = 3, delayMs = 5000) {
+            for (let i = 0; i < retries; i++) {
+                try { return await fn(); } 
+                catch (err) {
+                    if (i === retries - 1) throw err;
+                    El.floatingStatus.textContent = `Retrying (${i+1}/${retries})...`;
+                    El.floatingStatus.classList.add('text-yellow-400');
+                    console.warn(`Attempt ${i+1} failed. Retrying in ${delayMs/1000}s...`, err);
+                    await new Promise(r => setTimeout(r, delayMs));
+                    El.floatingStatus.classList.remove('text-yellow-400');
+                    El.floatingStatus.textContent = "Processing...";
+                }
+            }
+        }
+
+        async function startBatchTask() {
+            const apiKey = getApiKey();
+            if(!apiKey) return alert("API Key missing! Please set it in Settings.");
+
+            const prompt = document.getElementById('task-prompt-input').value;
+            const limit = parseInt(document.getElementById('task-limit-input').value);
+            const mode = document.querySelector('input[name="task-mode"]:checked').value;
+            const isTagging = state.currentTask === 'tagging';
+
+            state.prompts[state.currentTask] = prompt;
+            state.limits[state.currentTask] = limit;
+            Storage.setRaw(isTagging ? 'tp_prompt_tag' : 'tp_prompt_caption', prompt);
+            Storage.set(isTagging ? 'tp_limit_tag' : 'tp_limit_caption', limit);
+
+            closeTaskModal();
+            El.floatingProgress.classList.remove('hidden');
+            El.floatingStopBtn.textContent = "STOP OPERATION";
+            El.floatingStopBtn.disabled = false;
+            state.processing = true;
+
+            let processed = 0;
+            const total = state.dataset.length;
+            updateFloatingProgress(0, total);
+
+            for(let i=0; i<total; i++) {
+                if(!state.processing) break;
+                const item = state.dataset[i];
+                let content = item.tags.trim();
+                const hasContent = content.length > 0 && content !== state.triggerWord;
+                if(mode === 'ignore' && hasContent) { processed++; updateFloatingProgress(processed, total); continue; }
+
+                try {
+                    const result = await fetchWithRetry(() => callAI(item.file, prompt, limit, isTagging), 3, 5000);
+                    if(result) {
+                        let final = result;
+                        if(mode === 'append' && content) final = isTagging ? `${content}, ${result}` : `${content} ${result}`;
+                        if(state.triggerWord && !final.startsWith(state.triggerWord)) final = `${state.triggerWord}, ${final}`;
+                        item.tags = final;
+                        item.type = isTagging ? 'tags' : 'caption';
+                        renderGrid(); 
+                    }
+                } catch(e) { console.error("Batch error after retries", e); }
+                processed++;
+                updateFloatingProgress(processed, total);
+                await new Promise(r => setTimeout(r, 500)); 
+            }
+            state.processing = false;
+            El.floatingProgress.classList.add('hidden');
+            showNotification("Processing Complete!");
+            renderGrid();
+        }
+        
+        function updateFloatingProgress(curr, total) {
+            const p = (curr/total)*100;
+            El.floatingBar.style.width = `${p}%`;
+            El.floatingCounter.textContent = `${curr} / ${total}`;
+        }
+
+        async function singleAutoTag(idx) { await runSingleTask(idx, 'tagging'); }
+        async function singleAutoCaption(idx) { await runSingleTask(idx, 'captioning'); }
+        
+        async function runSingleTask(idx, taskType) {
+            const btn = document.activeElement;
+            const origHtml = btn.innerHTML;
+            btn.innerHTML = '<div class="spinner"></div>';
+            btn.disabled = true;
+
+            const apiKey = getApiKey();
+            if(!apiKey) { alert("Please set API Key in settings."); btn.innerHTML = origHtml; btn.disabled = false; return; }
+
+            const prompt = state.prompts[taskType];
+            const limit = state.limits[taskType]; 
+            const item = state.dataset[idx];
+
+            try {
+                const result = await callAI(item.file, prompt, limit, taskType === 'tagging');
+                if(result) {
+                    let current = item.tags;
+                    let final = current ? (taskType === 'tagging' ? `${current}, ${result}` : `${current} ${result}`) : result;
+                    if(state.triggerWord && !final.startsWith(state.triggerWord)) final = `${state.triggerWord}, ${final}`;
+                    item.tags = final;
+                    item.type = taskType === 'tagging' ? 'tags' : 'caption';
+                    renderGrid();
+                }
+            } catch(e) { showNotification("Generation Failed", 2000, true); console.error(e); }
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+        }
+
+        // ==========================================
+        // API CALLERS (Updated for specific models)
+        // ==========================================
+        async function callAI(file, systemPrompt, limit, isTags) {
+            const b64 = await toBase64(file);
+            const provider = state.activeModelProvider;
+            const key = getApiKey();
+            const modelId = state.activeModelId; // Use specific model ID
+
+            if(provider === 'gemini') return callGemini(key, modelId, b64, file.type, systemPrompt, limit);
+            if (provider === 'openai') return callOpenAI(key, modelId, b64, file.type, systemPrompt, limit);
+            if (provider === 'anthropic') return callAnthropic(key, modelId, b64, file.type, systemPrompt, limit);
+            throw new Error("Unknown provider");
+        }
+
+        async function callGemini(key, model, b64, mime, prompt, limit) {
+             const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+             const finalPrompt = `${prompt} ${limit ? `Limit output to roughly ${limit} ${limit < 40 ? 'tags' : 'words'}.` : ''}`;
+             const resp = await fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: finalPrompt }, { inlineData: { mimeType: mime, data: b64 } }] }]
+                })
+             });
+             const data = await resp.json();
+             if(!data.candidates) throw new Error("Gemini Error: " + JSON.stringify(data));
+             return data.candidates[0].content.parts[0].text.trim();
+        }
+
+        async function callOpenAI(key, model, b64, mime, prompt, limit) {
+             const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                body: JSON.stringify({
+                    model: model,
+                    messages: [
+                        { role: "system", content: prompt + (limit ? ` Limit to ${limit} items/words.` : "") },
+                        { role: "user", content: [{ type: "image_url", image_url: { url: `data:${mime};base64,${b64}` } }] }
+                    ],
+                    max_tokens: 300
+                })
+             });
+             const data = await resp.json();
+             if(data.error) throw new Error("OpenAI Error: " + data.error.message);
+             return data.choices[0].message.content.trim();
+        }
+
+        async function callAnthropic(key, model, b64, mime, prompt, limit) {
+             const resp = await fetch("https://api.anthropic.com/v1/messages", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': key,
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-dangerous-direct-browser-access': 'true'
+                },
+                body: JSON.stringify({
+                    model: model,
+                    max_tokens: 300,
+                    system: prompt + (limit ? ` Limit to ${limit} items/words.` : ""),
+                    messages: [
+                        { role: "user", content: [
+                            { type: "image", source: { type: "base64", media_type: mime, data: b64 } },
+                            { type: "text", text: "Analyze this image." }
+                        ]}
+                    ]
+                })
+             });
+             const data = await resp.json();
+             if(data.error) throw new Error("Anthropic Error: " + data.error.message);
+             return data.content[0].text.trim();
+        }
+
+        // ==========================================
+        // UTILS
+        // ==========================================
+        function getApiKey() {
+            if(state.activeModelProvider === 'gemini') return Storage.getRaw('tp_api_key_gemini');
+            if(state.activeModelProvider === 'openai') return Storage.getRaw('tp_api_key_openai');
+            if(state.activeModelProvider === 'anthropic') return Storage.getRaw('tp_api_key_anthropic');
+            return "";
+        }
+        function showNotification(msg, time=3000, err=false) {
+            El.notifText.textContent = msg;
+            El.notification.className = `fixed top-5 left-1/2 transform -translate-x-1/2 py-3 px-6 rounded-lg shadow-2xl z-[100] font-bold text-center border-2 border-white transition-all duration-300 ${err ? 'bg-red-600 text-white' : 'bg-green-500 text-white'}`;
+            El.notification.classList.remove('hidden', '-translate-y-20');
+            setTimeout(() => El.notification.classList.add('hidden'), time);
+        }
+        function showLoader(text) {
+            document.getElementById('loader-text').textContent = text;
+            document.getElementById('loader').classList.remove('hidden');
+        }
+        function hideLoader() { document.getElementById('loader').classList.add('hidden'); }
+        function showPreview(src) {
+            document.getElementById('preview-image').src = src;
+            document.getElementById('preview-modal').classList.remove('hidden');
+        }
+        function toBase64(file) {
+            return new Promise((res, rej) => {
+                const r = new FileReader();
+                r.onload = () => res(r.result.split(',')[1]);
+                r.onerror = rej;
+                r.readAsDataURL(file);
+            });
+        }
+        async function calculateHash(file) {
+            const buffer = await file.arrayBuffer();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+        function updateTagViewer() {
+            const list = document.getElementById('tag-viewer-list');
+            const counts = {};
+            state.dataset.forEach(i => {
+                i.tags.split(',').forEach(t => { const clean = t.trim(); if(clean && clean !== state.triggerWord) counts[clean] = (counts[clean] || 0) + 1; });
+            });
+            list.innerHTML = '';
+            document.getElementById('total-tags-badge').textContent = Object.keys(counts).length;
+            Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([tag, count]) => {
+                const div = document.createElement('div');
+                div.className = "flex items-center bg-gray-700 rounded-full px-3 py-1 text-xs border border-gray-600";
+                div.innerHTML = `<span class="text-gray-300 mr-2">${tag}</span><span class="bg-gray-800 px-1 rounded">${count}</span>`;
+                list.appendChild(div);
+            });
+            document.getElementById('tag-viewer-section').classList.remove('hidden');
+        }
+
+        // ==========================================
+        // CROPPER
+        // ==========================================
+        function initCrop(idx) {
+            cropIndex = idx;
+            document.getElementById('crop-image').src = URL.createObjectURL(state.dataset[idx].file);
+            document.getElementById('crop-modal').classList.remove('hidden');
+            if(cropperInstance) cropperInstance.destroy();
+            cropperInstance = new Cropper(document.getElementById('crop-image'), { viewMode: 1, autoCropArea: 0.9 });
+        }
+        function saveCrop() {
+            if(!cropperInstance || cropIndex === -1) return;
+            cropperInstance.getCroppedCanvas().toBlob((blob) => {
+                const f = state.dataset[cropIndex].file;
+                const newFile = new File([blob], f.name, {type: 'image/jpeg'});
+                state.dataset[cropIndex].file = newFile;
+                // Update file size visual if we had one?
+                cancelCrop();
+                renderGrid();
+            }, 'image/jpeg');
+        }
+        function cancelCrop() {
+            document.getElementById('crop-modal').classList.add('hidden');
+            if(cropperInstance) cropperInstance.destroy();
+            cropperInstance = null;
+            cropIndex = -1;
+        }
+
+        // ==========================================
+        // EXPORT LOGIC (ZIP & FOLDER)
+        // ==========================================
+        
+        async function handleZipExport() {
+            if(!state.dataset.length) return;
+            showLoader("Zipping...");
+            const zip = new JSZip();
+            
+            state.dataset.forEach((item, i) => {
+                // Determine path: use relativePath if available (from folder upload), or just name if flat
+                // We do NOT add a root folder wrapper here, as requested.
+                let path = item.relativePath || item.file.name;
+                
+                // If it was a generic upload, allow using the file name directly at root
+                // If it was a folder upload, relativePath is usually "RootFolder/Sub/File.png"
+                
+                // Save Image
+                zip.file(path, item.file);
+                
+                // Save Text
+                // Replace extension logic
+                const dotIndex = path.lastIndexOf('.');
+                const txtPath = (dotIndex !== -1 ? path.substring(0, dotIndex) : path) + ".txt";
+                zip.file(txtPath, item.tags);
+            });
+            
+            const content = await zip.generateAsync({type:"blob"});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(content);
+            a.download = "klok-dataset.zip"; // Generic name for the zip file itself
+            a.click();
+            hideLoader();
+        }
+
+        async function handleFolderExport() {
+            if (!state.dataset.length) return;
+            if (!('showDirectoryPicker' in window)) {
+                alert("This feature requires the File System Access API.\n\nBRAVE USERS:\n1. Go to chrome://flags\n2. Search for 'File System Access API'\n3. Set it to 'Enabled' and Relaunch.");
+                return;
+            }
+            try {
+                const rootDirHandle = await window.showDirectoryPicker();
+                showLoader("Saving files...");
+                
+                for (let i = 0; i < state.dataset.length; i++) {
+                    const item = state.dataset[i];
+                    // Path logic: "Root/Sub/Image.png" or just "Image.png"
+                    let fullPath = item.relativePath || item.file.name;
+                    
+                    // Split into parts to handle directories
+                    // Note: webkitRelativePath often includes the top-level directory name selected
+                    const parts = fullPath.split('/');
+                    const fileName = parts.pop(); // The actual file
+                    
+                    // Traverse/Create directories
+                    let currentDirHandle = rootDirHandle;
+                    for(const dirName of parts) {
+                        currentDirHandle = await currentDirHandle.getDirectoryHandle(dirName, { create: true });
+                    }
+                    
+                    // Write Image
+                    const imgHandle = await currentDirHandle.getFileHandle(fileName, { create: true });
+                    const imgWritable = await imgHandle.createWritable();
+                    await imgWritable.write(item.file);
+                    await imgWritable.close();
+                    
+                    // Write Text
+                    const dotIndex = fileName.lastIndexOf('.');
+                    const txtName = (dotIndex !== -1 ? fileName.substring(0, dotIndex) : fileName) + ".txt";
+                    const txtHandle = await currentDirHandle.getFileHandle(txtName, { create: true });
+                    const txtWritable = await txtHandle.createWritable();
+                    await txtWritable.write(item.tags);
+                    await txtWritable.close();
+                }
+                hideLoader();
+                showNotification("Saved successfully!");
+            } catch (err) {
+                hideLoader();
+                if (err.name !== 'AbortError') { console.error(err); alert("Error saving files: " + err.message); }
+            }
+        }
+
+        // ==========================================
+        // PRESETS
+        // ==========================================
+        function loadPresets() {
+            const presets = Storage.get('tp_presets', {});
+            const sel = document.getElementById('preset-selector');
+            sel.innerHTML = '<option value="">Load Preset...</option>';
+            Object.keys(presets).forEach(k => { sel.innerHTML += `<option value="${k}">${k}</option>`; });
+        }
+        function saveCurrentPreset() {
+            const name = prompt("Name this preset:");
+            if(name) {
+                const presets = Storage.get('tp_presets', {});
+                presets[name] = { prompt: document.getElementById('task-prompt-input').value, limit: document.getElementById('task-limit-input').value };
+                Storage.set('tp_presets', presets);
+                loadPresets();
+            }
+        }
+        function deleteCurrentPreset() {
+            const name = document.getElementById('preset-selector').value;
+            if(name && confirm(`Delete preset "${name}"?`)) {
+                const presets = Storage.get('tp_presets', {});
+                delete presets[name];
+                Storage.set('tp_presets', presets);
+                loadPresets();
+            }
+        }
+        function loadSelectedPreset(e) {
+            const name = e.target.value;
+            if(name) {
+                const presets = Storage.get('tp_presets', {});
+                const data = presets[name];
+                if (typeof data === 'string') { document.getElementById('task-prompt-input').value = data; } 
+                else if (typeof data === 'object') {
+                     document.getElementById('task-prompt-input').value = data.prompt || "";
+                     if(data.limit) document.getElementById('task-limit-input').value = data.limit;
+                }
+            }
+        }
+
+    </script>
+</body>
+</html>
