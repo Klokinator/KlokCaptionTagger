@@ -83,6 +83,8 @@ Since KCT is a client-side application, there is no Python backend or Node.js se
 
 ---
 
+Klok Caption Tagger is based on the excellent [TagPilot HTML code by vavo on Github](https://github.com/vavo/TagPilot "TagPilot HTML code by vavo on Github")! His version has Cropping and mine does not (yet?) so check his program out too!
+
 ### [**Umi AI Comfy Wildcards**](https://github.com/Tinuva88/Comfy-UmiAI/tree/main/wildcards)
 
 [![Join Discord](https://img.shields.io/badge/Discord-Join%20Umi%20AI-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/9K7j7DTfG2)
