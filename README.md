@@ -14,6 +14,9 @@ Klok Caption Tagger (KCT) streamlines the tedious process of preparing images fo
 ### Choose from five free Gemini models, or input a paid api key for OpenAI or Claude's models.
 <img width="901" height="735" alt="image" src="https://github.com/user-attachments/assets/92491a5c-e6a7-4953-b927-e93dd98f73ac" />
 
+### Note: If you want local caption generation, check out tagGUI. Local models are not suitable for KCT, but TagGUI suits this purpose perfectly!
+[<img width="182" height="259" alt="image" src="https://github.com/user-attachments/assets/88bfd36d-8689-4ed7-8c77-75b690aecb5a" />](https://github.com/jhc13/taggui)
+
 ### Built-in system prompts come with helpful descriptions you can edit or outright delete. Make your own!
 <img width="658" height="484" alt="image" src="https://github.com/user-attachments/assets/89637668-4c10-44ad-9c2f-383c32f1f061" />
 
