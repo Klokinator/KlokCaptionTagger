@@ -64,6 +64,7 @@ Since KCT is a client-side application, there is no Python backend or Node.js se
 3.  **Tagging/Captioning**:
     *   Click **"Tag All"** or **"Caption All"**.
     *   Select a **Preset** or write a custom System Prompt.
+## NOTICE: [Please read this Wiki page](https://github.com/Klokinator/KlokCaptionTagger/wiki/Recommended-Prompts-for-Z%E2%80%90Image-Tagging) to learn about custom System Prompts I have pre-written for everyone!
     *   Set your **Limits** (Max tags or Max words).
     *   Choose a mode (Ignore/Append/Overwrite) and start.
 4.  **Review**:
