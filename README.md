@@ -14,6 +14,8 @@ Klok Caption Tagger (KCT) streamlines the tedious process of preparing images fo
 
 <img width="1025" height="840" alt="image" src="https://github.com/user-attachments/assets/91f50e68-730d-4812-8d47-53ee1a46aeb2" />
 
+# NOTICE: [Please read this Wiki page](https://github.com/Klokinator/KlokCaptionTagger/wiki/Recommended-Prompts-for-Z%E2%80%90Image-Tagging) to learn about custom System Prompts I have pre-written for everyone!
+
 ## **Key Features**
 
 *   **Recursive Folder Support**: Load a root folder and KCT will load all images within it, maintaining the subfolder structure.
@@ -72,8 +74,6 @@ Since KCT is a client-side application, there is no Python backend or Node.js se
 5.  **Export**:
     *   **Save to Folder**: Updates the `.txt` files in your actual directory (requires permission).
     *   **Save to Zip**: Downloads a standalone package.
-
-## NOTICE: [Please read this Wiki page](https://github.com/Klokinator/KlokCaptionTagger/wiki/Recommended-Prompts-for-Z%E2%80%90Image-Tagging) to learn about custom System Prompts I have pre-written for everyone!
 
 ## **Technology Stack**
 
