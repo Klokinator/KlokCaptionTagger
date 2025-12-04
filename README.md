@@ -4,7 +4,7 @@
 
 [![Join Discord](https://img.shields.io/badge/Discord-Join%20Umi%20AI-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/9K7j7DTfG2)
 
-###[**Umi AI Comfy Wildcards**](https://github.com/Tinuva88/Comfy-UmiAI/tree/main/wildcards)
+### [**Umi AI Comfy Wildcards**](https://github.com/Tinuva88/Comfy-UmiAI/tree/main/wildcards)
 
 Klok Caption Tagger (KCT) streamlines the tedious process of preparing images for training. It offers a suite of client-side tools including AI-powered auto-tagging, auto-captioning, and recursive folder management. It runs entirely in your browser, keeping your data private and secure.
 
@@ -83,6 +83,6 @@ Since KCT is a client-side application, there is no Python backend or Node.js se
 
 ---
 
-###[**Umi AI Comfy Wildcards**](https://github.com/Tinuva88/Comfy-UmiAI/tree/main/wildcards)
+### [**Umi AI Comfy Wildcards**](https://github.com/Tinuva88/Comfy-UmiAI/tree/main/wildcards)
 
 [![Join Discord](https://img.shields.io/badge/Discord-Join%20Umi%20AI-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/9K7j7DTfG2)
