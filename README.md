@@ -34,7 +34,7 @@ Klok Caption Tagger (KCT) streamlines the tedious process of preparing images fo
     *   **Tag Viewer**: Analyze tag frequency across your dataset.
     *   **Tag Mode vs Caption Mode**: Switch the UI to optimize for comma-separated tags or block text captions.
 
-## **Changes from Previous Versions**
+## **Changes from TagPilot [(Original tool by vavo)](https://github.com/vavo/TagPilot "TagPilot HTML code by vavo on Github")**
 
 *   **No Image Renaming**: KCT respects your existing filenames. When exporting, it keeps the original names and directory structure.
 *   **Cropping Removed**: The cropping tool has been deprecated to focus on captioning speed and accuracy. (May be re-added via user request).
