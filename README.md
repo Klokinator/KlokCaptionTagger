@@ -38,7 +38,7 @@ Klok Caption Tagger (KCT) streamlines the tedious process of preparing images fo
 
 *   **No Image Renaming**: KCT respects your existing filenames. When exporting, it keeps the original names and directory structure.
 *   **Cropping Removed**: The cropping tool has been deprecated to focus on captioning speed and accuracy. (May be re-added via user request).
-*   **Direct File System Access**: Now supports writing directly to disk (Chrome/Edge/Brave only).
+*   **Direct File System Access**: Now supports writing directly to disk (Chrome/Edge/Brave only) in addition to exporting images and .txts in a zip file.
 
 ## **Setup & Installation**
 
