@@ -1,4 +1,4 @@
-# **Klok Caption Tagger v1 ⏰**
+# **Klok Caption Tagger v1.1 ⏰**
 
 **A powerful, browser-based tool for creating and managing training datasets for AI image generation, such as making LoRAs for the Z-Image model, Stable Diffusion, Flux, Illustrious, and more!**
 
@@ -39,7 +39,6 @@ Klok Caption Tagger (KCT) streamlines the tedious process of preparing images fo
 ## **Changes from TagPilot [(Original tool by vavo)](https://github.com/vavo/TagPilot "TagPilot HTML code by vavo on Github")**
 
 *   **No Image Renaming**: KCT respects your existing filenames. When exporting, it keeps the original names and directory structure.
-*   **Cropping Removed**: The cropping tool has been deprecated to focus on captioning speed and accuracy. (May be re-added via user request).
 *   **Direct File System Access**: Now supports writing directly to disk (Chrome/Edge/Brave only) in addition to exporting images and .txts in a zip file.
 
 ## **Setup & Installation**
@@ -66,12 +65,18 @@ Since KCT is a client-side application, there is no Python backend or Node.js se
 3.  **Tagging/Captioning**:
     *   Click **"Tag All"** or **"Caption All"**.
     *   Select a **Preset** or write a custom System Prompt.
+	*	Click the [i] beside System Prompt for more information.
+	*	Read the Descriptions for each preset prompt to understand what they do.
+	*	Write your own prompt descriptions and edit the default ones too!
     *   Set your **Limits** (Max tags or Max words).
     *   Choose a mode (Ignore/Append/Overwrite) and start.
-4.  **Review**:
+4.	**Cropping and Painting**:
+	*	Click the **Crop/Edit** button to crop images, and to use a simple paint tool to blot out unwanted text and watermarks.
+	*	(It is still recommended to use a dedicated image editor for more major image cleanup jobs)
+5.  **Review**:
     *   Use the **Tag Viewer** to clean up unwanted tags globally.
     *   Click on individual text boxes to perform manual edits.
-5.  **Export**:
+6.  **Export**:
     *   **Save to Folder**: Updates the `.txt` files in your actual directory (requires permission).
     *   **Save to Zip**: Downloads a standalone package.
 
@@ -85,7 +90,7 @@ Since KCT is a client-side application, there is no Python backend or Node.js se
 
 ---
 
-Klok Caption Tagger is based on the excellent [TagPilot HTML code by vavo on Github](https://github.com/vavo/TagPilot "TagPilot HTML code by vavo on Github")! His version has Cropping and mine does not (yet?) so check his program out too!
+Klok Caption Tagger is based on the excellent [TagPilot HTML code by vavo on Github](https://github.com/vavo/TagPilot "TagPilot HTML code by vavo on Github")!
 
 ### [**Umi AI Comfy Wildcards**](https://github.com/Tinuva88/Comfy-UmiAI/tree/main/wildcards)
 

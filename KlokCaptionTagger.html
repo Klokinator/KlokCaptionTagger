@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Klok Caption Tagger v1 ⏰</title>
+    <title>Klok Caption Tagger v1.2 ⏰</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -33,39 +33,21 @@
             .rotate-icon { transition: transform 0.3s ease; }
             .rotate-icon.expanded { transform: rotate(180deg); }
 
-            /* Model Table Styles */
-            /* Default alignment center, First column left */
             .model-table th { 
                 @apply px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider bg-gray-900 border-b border-gray-700 text-center; 
             }
-            .model-table th:first-child { 
-                @apply text-left; 
-            }
-            
+            .model-table th:first-child { @apply text-left; }
             .model-table td { 
                 @apply px-4 py-3 whitespace-nowrap text-sm text-gray-300 border-b border-gray-700 transition-colors text-center; 
             }
-            .model-table td:first-child { 
-                @apply text-left; 
-            }
-
-            /* Highlighting row on hover - Using explicit background for visibility */
-            .model-table tbody tr { 
-                transition: background-color 0.15s ease-in-out; 
-                cursor: pointer; 
-            }
-            .model-table tbody tr:hover { 
-                @apply bg-indigo-600; /* Brighter highlight */
-                background-color: rgba(79, 70, 229, 0.4); /* Fallback/Override */
-            } 
+            .model-table td:first-child { @apply text-left; }
+            .model-table tbody tr { transition: background-color 0.15s ease-in-out; cursor: pointer; }
+            .model-table tbody tr:hover { @apply bg-indigo-600; background-color: rgba(79, 70, 229, 0.4); } 
+            .model-table tr.selected { @apply bg-indigo-900/60 border-l-4 border-indigo-400; }
+            .model-table tr.selected td:first-child { @apply text-indigo-300 font-bold; }
             
-            /* Selected state */
-            .model-table tr.selected { 
-                @apply bg-indigo-900/60 border-l-4 border-indigo-400; 
-            }
-            .model-table tr.selected td:first-child { 
-                @apply text-indigo-300 font-bold; 
-            }
+            /* Canvas for Paint/Crop */
+            canvas#crop-canvas { max-width: 100%; max-height: 70vh; touch-action: none; cursor: crosshair; }
         }
     </style>
 </head>
@@ -97,7 +79,7 @@
         <header class="flex flex-col md:flex-row justify-between items-center mb-8 bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700 relative">
             <div class="mb-4 md:mb-0 w-full md:w-1/3">
                 <h1 class="text-3xl font-bold text-white tracking-tight flex items-center gap-2">
-                    Klok Caption Tagger <span class="text-indigo-400 text-xl">v1</span> ⏰
+                    Klok Caption Tagger <span class="text-indigo-400 text-xl">v1.1</span> ⏰
                 </h1>
             </div>
 
@@ -279,7 +261,7 @@
 
     <!-- General Task Modal (Merged Tag/Caption logic) -->
     <div id="task-modal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[80] p-2 md:p-6">
-        <div class="bg-gray-800 rounded-xl shadow-2xl w-full h-[95vh] md:h-[90vh] max-w-5xl flex flex-col border border-gray-600 overflow-hidden">
+        <div class="bg-gray-800 rounded-xl shadow-2xl w-full h-[95vh] md:h-[90vh] max-w-5xl flex flex-col border border-gray-600 overflow-hidden relative">
             
             <!-- Modal Header -->
             <div class="p-4 md:p-6 border-b border-gray-700 flex justify-between items-center bg-gray-900/50">
@@ -327,9 +309,19 @@
                 </div>
 
                 <!-- Right: Prompt Editor -->
-                <div class="w-full md:w-2/3 p-6 flex flex-col bg-gray-900">
+                <div class="w-full md:w-2/3 p-6 flex flex-col bg-gray-900 relative">
                     <div class="flex justify-between items-center mb-2">
-                        <label class="text-gray-400 text-xs uppercase font-bold">System Prompt</label>
+                        <div class="flex items-center gap-2 relative">
+                            <label class="text-gray-400 text-xs uppercase font-bold">System Prompt</label>
+                            <!-- Info Icon -->
+                            <button id="info-icon-btn" class="text-gray-400 hover:text-white transition-colors bg-gray-700 rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-serif italic border border-gray-500">i</button>
+                            <!-- Info Popover -->
+                            <div id="info-popover" class="hidden absolute top-6 left-0 w-80 bg-gray-800 border border-gray-600 rounded-lg p-3 z-50 shadow-2xl text-xs text-gray-300 leading-relaxed">
+                                When tagging images, there are a variety of ways you can customize the system prompt to get what you want. The most important thing you need to know about tagging or captioning images for loras is the following: Tag everything you DON'T want the lora to know, and untag everything you DO want the Lora to know.
+                                <br><br>
+                                If you want to make a Cosplay lora with an outfit any character can wear, tag everything in the image, including the details of the character wearing the outfit, but NOT the outfit itself! It's counter-intuitive, and really weird, but this is how you properly caption and tag images to make Loras!
+                            </div>
+                        </div>
                         <div class="flex gap-2">
                             <select id="preset-selector" class="bg-gray-800 border border-gray-600 text-xs text-white rounded px-2 py-1 outline-none">
                                 <option value="">Load Preset...</option>
@@ -338,8 +330,11 @@
                              <button id="delete-preset-btn" class="text-xs bg-gray-700 hover:bg-red-900 px-2 py-1 rounded text-gray-300 border border-gray-600">&times;</button>
                         </div>
                     </div>
+
+                    <!-- Editable Description Box -->
+                    <textarea id="prompt-desc-input" placeholder="Prompt Description (Optional)" class="w-full bg-gray-800 border border-gray-700 rounded p-2 text-xs text-gray-400 italic mb-2 min-h-[40px] resize-none focus:outline-none focus:border-indigo-500"></textarea>
+
                     <textarea id="task-prompt-input" class="flex-grow w-full bg-gray-800 border border-gray-700 rounded p-4 text-sm text-gray-300 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-900 font-mono resize-none leading-relaxed"></textarea>
-                    <p class="text-xs text-gray-600 mt-2">Tips: Use specific keywords. For captions, specify if you want natural language or list style.</p>
                 </div>
             </div>
 
@@ -357,16 +352,34 @@
         <button id="preview-close" class="absolute top-5 right-5 text-white/50 hover:text-white text-5xl font-light">&times;</button>
     </div>
 
-    <!-- Cropper Modal -->
+    <!-- Edit/Crop Modal (Updated for Paint Color) -->
     <div id="crop-modal" class="hidden fixed inset-0 bg-gray-900 z-[120] flex flex-col">
-        <div class="flex-grow relative bg-black">
-            <div class="h-full w-full flex items-center justify-center p-4">
-                <img id="crop-image" src="" class="max-w-full max-h-full block">
+        <!-- Toolbar -->
+        <div class="bg-gray-800 p-2 border-b border-gray-700 flex justify-between items-center">
+            <div class="flex gap-2">
+                <button id="tool-crop" class="bg-indigo-600 text-white px-3 py-1 rounded text-sm font-bold">Crop Mode</button>
+                <button id="tool-paint" class="bg-gray-700 text-gray-300 hover:text-white px-3 py-1 rounded text-sm font-bold">Paint/Blot Mode</button>
+            </div>
+            <div id="paint-tools" class="flex gap-2 hidden items-center">
+                <span class="text-xs text-gray-400">Brush Size:</span>
+                <input type="range" id="brush-size" min="5" max="50" value="20" class="w-24">
+                <div class="w-px h-6 bg-gray-600 mx-2"></div>
+                <!-- Color Picker -->
+                <input type="color" id="paint-color" value="#000000" class="h-6 w-8 bg-transparent border-0 cursor-pointer p-0" title="Choose color">
+                <div class="w-px h-6 bg-gray-600 mx-2"></div>
+                <button id="paint-undo" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">Undo Last</button>
             </div>
         </div>
+
+        <div class="flex-grow relative bg-black overflow-hidden flex items-center justify-center p-4">
+            <div id="canvas-container" class="relative">
+                <canvas id="crop-canvas"></canvas>
+            </div>
+        </div>
+
         <div class="bg-gray-800 p-4 flex justify-center gap-4 border-t border-gray-700">
             <button id="crop-cancel" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-8 rounded-lg border border-gray-600">Cancel</button>
-            <button id="crop-save" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-8 rounded-lg border border-indigo-500">Apply Crop</button>
+            <button id="crop-save" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-8 rounded-lg border border-indigo-500">Save Changes</button>
         </div>
     </div>
 
@@ -383,10 +396,30 @@
         // CONFIG & STATE MANAGEMENT
         // ==========================================
         
-        // Defaults
+        const DEFAULT_PRESETS = {
+            "Full Character": {
+                desc: "This prompt will not tag a character or the outfit they are wearing. Use it if you have a character with a specific outfit you want them to be wearing.",
+                prompt: "Write a detailed caption for this image of a character named 'NAME'. Use the character's name instead of pronouns wherever applicable. The caption will feature multiple sentences focusing on each aspect of the image, such as the artstyle/photo details, the character's pose, details regarding the background, and other important miscellaneous features. Be as detailed as possible. Do NOT write any details about the character's physical appearance or outfit. Ignore any accessories attached to her body or other parts of her outfit.\n\nHere is an example caption: An anime styled digital drawing with cel shading and soft lighting. Tifa Lockhart is standing with her legs apart and smiling confidently, holding one hand up in a fist while using her other hand to play with her hair. In the background there is a neon-illuminated city skyline with rain falling and thunder flashing in the background as well as a bus stop."
+            },
+            "Character Head": {
+                desc: "Use this prompt if you want to make a lora of a character's head and core accessories/features like tattoos, horns, wings, etc, but NOT their outfits. They will be able to easily wear any outfit you like.",
+                prompt: "Write a detailed caption for this image of a character named 'NAME'.. Use the character's name instead of pronouns wherever applicable. The caption will feature multiple sentences focusing on each aspect of the image, such as the artstyle/photo details, the character's outfit, the character's pose, details regarding the background, and other important miscellaneous features. Be as detailed as possible. Write all the sentences in a single long paragraph with no line breaks. Do not start your reply with any extraneous words such as \"This is the caption\". Do NOT caption any details about the character's physical appearance, such as her eyes, hair, and so on; only her outfit and accessories.\n\nHere is an example caption: An anime styled digital drawing with cel shading and soft lighting. Tifa Lockhart is wearing a white croptop with a black leather miniskirt along with suspenders, silver and black fingerless gloves that go up past her elbows, tall black thighhigh stockings, and red boots with black straps. Tifa Lockhart is standing with her legs apart and smiling confidently, holding one hand up in a fist while using her other hand to adjust her glove. In the background there is a neon-illuminated city skyline with rain falling and thunder flashing in the background as well as a bus stop."
+            },
+            "Cosplay Outfit": {
+                desc: "Use this to caption outfits so that you can make a lora for that outfit and put the outfit on other characters.",
+                prompt: "Write a detailed caption for this image of a character named 'NAME'. Use the character's name instead of pronouns wherever applicable. The caption will feature multiple sentences focusing on each aspect of the image, such as the artstyle/photo details, the character's appearance, the character's pose, details regarding the background, and other important miscellaneous features. Be as detailed as possible. Write all the sentences in a single long paragraph with no line breaks. Do not start your reply with any extraneous words such as \"This is the caption\". Do NOT caption any details about the character's outfit or other worn accessories.\n\nHere is an example caption: An anime styled digital drawing with cel shading and soft lighting. Tifa Lockhart is a female with caucasian skin and red eyes and long black hair. Tifa is standing with her legs apart and smiling confidently, holding one hand up in a fist while using her other hand to touch her hair. In the background there is a neon-illuminated city skyline with rain falling and thunder flashing in the background as well as a bus stop."
+            },
+            "Art Style": {
+                desc: "Use this for art styles, photography styles, and so on. It will tag everything BUT the image's style.",
+                prompt: "Write a detailed caption for this image of a character named 'NAME'. Use the character's name instead of pronouns wherever applicable. The caption will feature multiple sentences focusing on each aspect of the image, such as the character's appearance, the character's outfit, the character's pose, details regarding the background, and other important miscellaneous features. Be as detailed as possible. Write all the sentences in a single long paragraph with no line breaks. Do not start your reply with any extraneous words such as \"This is the caption\". Do NOT describe the image's style or photography styles.\n\nHere is an example caption: Tifa Lockhart is a female with caucasian skin and red eyes and long black hair. Tifa is wearing a white croptop with a black leather miniskirt along with suspenders, silver and black fingerless gloves that go up past her elbows, tall black thighhigh stockings, and red boots with black straps. Tifa is standing with her legs apart and smiling confidently, holding one hand up in a fist while using her other hand to adjust her glove. In the background there is a neon-illuminated city skyline with rain falling and thunder flashing in the background as well as a bus stop."
+            },
+            "FULL Caption": {
+                desc: "This is a generic caption. It will tag literally everything in the image. Not good for making anything specifically, but good to use as a base for customizing and making other captions!",
+                prompt: "Write a detailed caption for this image of a character named 'NAME'. Use the character's name instead of pronouns wherever applicable. The caption will feature multiple sentences focusing on each aspect of the image, such as the character's appearance, the character's outfit, the character's pose, details regarding the background, and other important miscellaneous features. Be as detailed as possible. Write all the sentences in a single long paragraph with no line breaks. Do not start your reply with any extraneous words such as \"This is the caption\". Do NOT describe the image's style or photography styles.\n\nHere is an example caption: Tifa Lockhart is a female with caucasian skin and red eyes and long black hair. Tifa is wearing a white croptop with a black leather miniskirt along with suspenders, silver and black fingerless gloves that go up past her elbows, tall black thighhigh stockings, and red boots with black straps. Tifa is standing with her legs apart and smiling confidently, holding one hand up in a fist while using her other hand to adjust her glove. In the background there is a neon-illuminated city skyline with rain falling and thunder flashing in the background as well as a bus stop."
+            }
+        };
+
         const DEFAULTS = {
-            tagPrompt: "Describe this image with precise, comma-separated tags for Stable Diffusion training. Focus on: Character details, clothing, hair, accessories, background, lighting, and composition. Put the most important visual elements first.",
-            captionPrompt: "Write a detailed, natural language caption for this image. Describe the subject, their action, the camera angle, the lighting, and the background environment. Use the character name if known.",
             modelProvider: "gemini",
             modelId: "gemini-2.0-flash", 
             tagLimit: 30,
@@ -405,17 +438,16 @@
 
         // App State
         let state = {
-            dataset: [], // { file, tags, type: 'tags'|'caption', hash, relativePath: string }
+            dataset: [], 
             triggerWord: "",
             processing: false,
             currentTask: null,
             activeModelProvider: Storage.getRaw('tp_model_provider') || DEFAULTS.modelProvider,
             activeModelId: Storage.getRaw('tp_model_id') || DEFAULTS.modelId,
             prompts: {
-                tagging: Storage.getRaw('tp_prompt_tag') || DEFAULTS.tagPrompt,
-                captioning: Storage.getRaw('tp_prompt_caption') || DEFAULTS.captionPrompt
+                tagging: Storage.getRaw('tp_prompt_tag') || DEFAULT_PRESETS["FULL Caption (No focus)"].prompt,
+                captioning: Storage.getRaw('tp_prompt_caption') || DEFAULT_PRESETS["FULL Caption (No focus)"].prompt
             },
-            // Default to 'caption' now per request
             globalViewMode: Storage.getRaw('tp_global_view_mode') || 'caption',
             limits: {
                 tagging: Storage.get('tp_limit_tag', DEFAULTS.tagLimit),
@@ -461,16 +493,22 @@
             floatingBar: document.getElementById('floating-bar'),
             floatingStopBtn: document.getElementById('floating-stop-btn'),
             floatingStatus: document.getElementById('floating-status'),
-            // Settings Elements
             modelProviderSelect: document.getElementById('model-provider-select'),
             modelTableHead: document.getElementById('model-table-head'),
             modelTableBody: document.getElementById('model-table-body'),
             selectedModelDisplay: document.getElementById('selected-model-display')
         };
 
+        // Edit/Crop State
         let cropperInstance = null;
         let cropIndex = -1;
-
+        let cropCanvas = document.getElementById('crop-canvas');
+        let cropCtx = null;
+        let paintHistory = [];
+        let isPainting = false;
+        let isDrawing = false;
+        let editMode = 'crop'; // 'crop' or 'paint'
+        
         // ==========================================
         // INITIALIZATION
         // ==========================================
@@ -480,22 +518,18 @@
             setupEventListeners();
             loadPresets();
             updateGlobalViewButtonText();
-            renderModelTable(); // Render table on load
+            renderModelTable(); 
         });
 
         function loadSettings() {
             if (typeof userApiKey !== 'undefined' && !Storage.getRaw('tp_api_key_gemini')) {
                 Storage.setRaw('tp_api_key_gemini', userApiKey);
             }
-            
-            // Sync UI
             El.modelProviderSelect.value = state.activeModelProvider;
             El.selectedModelDisplay.textContent = state.activeModelId;
-
             document.getElementById('api-key-gemini').value = Storage.getRaw('tp_api_key_gemini');
             document.getElementById('api-key-openai').value = Storage.getRaw('tp_api_key_openai');
             document.getElementById('api-key-anthropic').value = Storage.getRaw('tp_api_key_anthropic');
-            
             toggleKeyInputs(state.activeModelProvider);
         }
 
@@ -527,12 +561,10 @@
             });
             document.getElementById('close-settings-btn').addEventListener('click', () => El.apiModal.classList.add('hidden'));
             document.getElementById('save-settings-btn').addEventListener('click', saveApiSettings);
-            
             El.modelProviderSelect.addEventListener('change', (e) => {
                 state.activeModelProvider = e.target.value;
                 toggleKeyInputs(state.activeModelProvider);
                 renderModelTable();
-                // Reset model selection to first in list when provider changes
                 if (MODELS[state.activeModelProvider].length > 0) {
                      state.activeModelId = MODELS[state.activeModelProvider][0].id;
                      El.selectedModelDisplay.textContent = state.activeModelId;
@@ -550,6 +582,11 @@
                 El.floatingStopBtn.textContent = "Stopping...";
             });
 
+            // Info Icon
+            document.getElementById('info-icon-btn').addEventListener('click', () => {
+                document.getElementById('info-popover').classList.toggle('hidden');
+            });
+
             // Presets
             document.getElementById('save-preset-btn').addEventListener('click', saveCurrentPreset);
             document.getElementById('delete-preset-btn').addEventListener('click', deleteCurrentPreset);
@@ -562,9 +599,12 @@
             document.getElementById('preview-close').addEventListener('click', () => document.getElementById('preview-modal').classList.add('hidden'));
             document.getElementById('preview-modal').addEventListener('click', (e) => { if(e.target.id === 'preview-modal') e.target.classList.add('hidden'); });
             
-            // Cropper
+            // Cropper / Edit
             document.getElementById('crop-save').addEventListener('click', saveCrop);
             document.getElementById('crop-cancel').addEventListener('click', cancelCrop);
+            document.getElementById('tool-crop').addEventListener('click', () => setEditMode('crop'));
+            document.getElementById('tool-paint').addEventListener('click', () => setEditMode('paint'));
+            document.getElementById('paint-undo').addEventListener('click', undoPaint);
             
             // Tag Viewer
             document.getElementById('tag-viewer-header').addEventListener('click', () => {
@@ -585,56 +625,27 @@
         function renderModelTable() {
             const provider = state.activeModelProvider;
             const data = MODELS[provider];
-            
             El.modelTableHead.innerHTML = '';
             El.modelTableBody.innerHTML = '';
 
-            // Render Headers
             if (provider === 'gemini') {
-                El.modelTableHead.innerHTML = `
-                    <tr>
-                        <th>Model Name</th>
-                        <th>Category</th>
-                        <th>RPM</th>
-                        <th>TPM</th>
-                        <th>RPD</th>
-                    </tr>
-                `;
+                El.modelTableHead.innerHTML = `<tr><th>Model Name</th><th>Category</th><th>RPM</th><th>TPM</th><th>RPD</th></tr>`;
             } else {
-                El.modelTableHead.innerHTML = `
-                    <tr>
-                        <th>Model Name</th>
-                        <th>Input / 1M</th>
-                        <th>Output / 1M</th>
-                    </tr>
-                `;
+                El.modelTableHead.innerHTML = `<tr><th>Model Name</th><th>Input / 1M</th><th>Output / 1M</th></tr>`;
             }
 
-            // Render Rows
             data.forEach(model => {
                 const tr = document.createElement('tr');
                 if (model.id === state.activeModelId) tr.classList.add('selected');
-                
                 tr.onclick = () => {
                     state.activeModelId = model.id;
                     El.selectedModelDisplay.textContent = model.id;
-                    renderModelTable(); // Re-render to update selected class
+                    renderModelTable(); 
                 };
-
                 if (provider === 'gemini') {
-                    tr.innerHTML = `
-                        <td>${model.name}</td>
-                        <td>${model.category}</td>
-                        <td>${model.rpm}</td>
-                        <td>${model.tpm}</td>
-                        <td>${model.rpd}</td>
-                    `;
+                    tr.innerHTML = `<td>${model.name}</td><td>${model.category}</td><td>${model.rpm}</td><td>${model.tpm}</td><td>${model.rpd}</td>`;
                 } else {
-                    tr.innerHTML = `
-                        <td>${model.name}</td>
-                        <td>${model.in}</td>
-                        <td>${model.out}</td>
-                    `;
+                    tr.innerHTML = `<td>${model.name}</td><td>${model.in}</td><td>${model.out}</td>`;
                 }
                 El.modelTableBody.appendChild(tr);
             });
@@ -642,15 +653,11 @@
 
         function saveApiSettings() {
             const provider = El.modelProviderSelect.value;
-            // Save state
             Storage.setRaw('tp_model_provider', provider);
             Storage.setRaw('tp_model_id', state.activeModelId);
-            
-            // Save keys
             Storage.setRaw('tp_api_key_gemini', document.getElementById('api-key-gemini').value.trim());
             Storage.setRaw('tp_api_key_openai', document.getElementById('api-key-openai').value.trim());
             Storage.setRaw('tp_api_key_anthropic', document.getElementById('api-key-anthropic').value.trim());
-            
             El.apiModal.classList.add('hidden');
             showNotification("Settings & Model Saved", 2000);
         }
@@ -671,14 +678,7 @@
                     if(file.name.toLowerCase().endsWith('.jpeg')) {
                         finalFile = new File([file], file.name.replace(/.jpeg$/i, '.jpg'), {type: file.type});
                     }
-                    // For flat upload, relativePath is just name
-                    newItems.push({ 
-                        file: finalFile, 
-                        tags: state.triggerWord || "", 
-                        type: 'caption', // Default to caption per request
-                        hash: hash,
-                        relativePath: finalFile.name 
-                    });
+                    newItems.push({ file: finalFile, tags: state.triggerWord || "", type: 'caption', hash: hash, relativePath: finalFile.name });
                     existingHashes.add(hash);
                 }
             }
@@ -687,33 +687,20 @@
             renderGrid();
         }
 
-        // New Folder Upload
         async function handleFolderUpload(e) {
             if(!e.target.files.length) return;
             showLoader("Scanning folder...");
             const newItems = [];
             const existingHashes = new Set(state.dataset.map(i => i.hash));
-            
             for (const file of e.target.files) {
-                // Filter for images
                 if(!file.name.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/)) continue;
-
                 const hash = await calculateHash(file);
                 if (!existingHashes.has(hash)) {
                     let finalFile = file;
                     if(file.name.toLowerCase().endsWith('.jpeg')) {
                         finalFile = new File([file], file.name.replace(/.jpeg$/i, '.jpg'), {type: file.type});
                     }
-                    
-                    // webkitRelativePath contains the full path from the root folder selected
-                    // e.g., "MyDataset/Subfolder/img.png"
-                    newItems.push({ 
-                        file: finalFile, 
-                        tags: state.triggerWord || "", 
-                        type: 'caption', 
-                        hash: hash,
-                        relativePath: file.webkitRelativePath || file.name
-                    });
+                    newItems.push({ file: finalFile, tags: state.triggerWord || "", type: 'caption', hash: hash, relativePath: file.webkitRelativePath || file.name });
                     existingHashes.add(hash);
                 }
             }
@@ -733,41 +720,28 @@
                 for(let filename in zip.files) {
                     if(zip.files[filename].dir) continue;
                     const low = filename.toLowerCase();
-                    // Basic base extraction for matching
                     const base = filename.substring(0, filename.lastIndexOf('.'));
-                    
                     if(low.match(/\.(jpg|jpeg|png|webp)$/)) {
                         imgFiles[filename] = { obj: zip.files[filename], base: base };
                     } else if(low.endsWith('.txt')) {
-                        txtFiles[base] = zip.files[filename]; // Key by base no extension for matching
+                        txtFiles[base] = zip.files[filename]; 
                     }
                 }
                 const newItems = [];
                 const existingHashes = new Set(state.dataset.map(i => i.hash));
-                
                 for(let filename in imgFiles) {
                     const entry = imgFiles[filename];
                     const blob = await entry.obj.async('blob');
                     const f = new File([blob], filename.split('/').pop(), {type: blob.type});
                     const hash = await calculateHash(f);
-                    
                     if(!existingHashes.has(hash)) {
                         let content = "";
-                        // Try to find matching txt
                         if(txtFiles[entry.base]) content = await txtFiles[entry.base].async('string');
-                        
                         if(state.triggerWord && !content.startsWith(state.triggerWord)) {
                             content = content ? `${state.triggerWord}, ${content}` : state.triggerWord;
                         }
                         const isCaption = content.includes(' ') && !content.includes(','); 
-                        
-                        newItems.push({ 
-                            file: f, 
-                            tags: content.trim(), 
-                            type: isCaption ? 'caption' : 'tags', 
-                            hash: hash,
-                            relativePath: filename // Preserve zip structure
-                        });
+                        newItems.push({ file: f, tags: content.trim(), type: isCaption ? 'caption' : 'tags', hash: hash, relativePath: filename });
                         existingHashes.add(hash);
                     }
                 }
@@ -819,9 +793,8 @@
                     <div class="relative w-full md:w-64 h-48 md:h-full flex-shrink-0 bg-gray-900 group">
                         <img src="${imgUrl}" class="w-full h-full object-contain cursor-zoom-in" onclick="showPreview('${imgUrl}')">
                         <div class="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded border border-white/10">${idx+1}</div>
-                        <div class="absolute bottom-0 left-0 w-full bg-black/70 p-2 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button class="text-xs text-white hover:text-indigo-300 font-medium" onclick="initCrop(${idx})">Crop</button>
-                            <button class="text-xs text-white hover:text-red-300 font-medium" onclick="deleteItem(${idx})">Delete</button>
+                        <div class="absolute bottom-0 left-0 w-full bg-black/70 p-2 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button class="text-xs text-red-300 hover:text-red-200 font-medium px-2" onclick="deleteItem(${idx})">Delete</button>
                         </div>
                     </div>
                     <div class="flex-grow flex flex-col p-3 min-w-0">
@@ -832,7 +805,10 @@
                                 </button>
                                 <span class="text-xs text-gray-500 py-1 font-mono">${(item.file.size/1024).toFixed(0)}KB</span>
                             </div>
-                            <div class="flex gap-1">
+                            <div class="flex gap-1 items-center">
+                                <button class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-xs font-bold mr-2" onclick="initCrop(${idx})">
+                                    Crop / Edit
+                                </button>
                                 <button class="p-1 hover:bg-gray-700 rounded text-indigo-400 transition-colors" title="Auto Tag" onclick="singleAutoTag(${idx})">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
                                 </button>
@@ -933,6 +909,12 @@
             document.getElementById('task-limit-input').value = savedLimit;
             document.getElementById('task-limit-desc').textContent = type === 'tagging' ? "Max Tags" : "Max Words";
             document.getElementById('task-prompt-input').value = state.prompts[type];
+            document.getElementById('prompt-desc-input').value = ""; // Clear or load default
+            document.getElementById('info-popover').classList.add('hidden'); 
+            
+            // Try to find if current prompt matches a preset to load its description
+            // For now, simple logic: leave blank unless loaded via preset selector
+            
             El.taskModal.classList.remove('hidden');
         }
 
@@ -951,7 +933,6 @@
                     if (i === retries - 1) throw err;
                     El.floatingStatus.textContent = `Retrying (${i+1}/${retries})...`;
                     El.floatingStatus.classList.add('text-yellow-400');
-                    console.warn(`Attempt ${i+1} failed. Retrying in ${delayMs/1000}s...`, err);
                     await new Promise(r => setTimeout(r, delayMs));
                     El.floatingStatus.classList.remove('text-yellow-400');
                     El.floatingStatus.textContent = "Processing...";
@@ -962,7 +943,6 @@
         async function startBatchTask() {
             const apiKey = getApiKey();
             if(!apiKey) return alert("API Key missing! Please set it in Settings.");
-
             const prompt = document.getElementById('task-prompt-input').value;
             const limit = parseInt(document.getElementById('task-limit-input').value);
             const mode = document.querySelector('input[name="task-mode"]:checked').value;
@@ -1049,14 +1029,13 @@
         }
 
         // ==========================================
-        // API CALLERS (Updated for specific models)
+        // API CALLERS
         // ==========================================
         async function callAI(file, systemPrompt, limit, isTags) {
             const b64 = await toBase64(file);
             const provider = state.activeModelProvider;
             const key = getApiKey();
-            const modelId = state.activeModelId; // Use specific model ID
-
+            const modelId = state.activeModelId; 
             if(provider === 'gemini') return callGemini(key, modelId, b64, file.type, systemPrompt, limit);
             if (provider === 'openai') return callOpenAI(key, modelId, b64, file.type, systemPrompt, limit);
             if (provider === 'anthropic') return callAnthropic(key, modelId, b64, file.type, systemPrompt, limit);
@@ -1177,64 +1156,164 @@
         }
 
         // ==========================================
-        // CROPPER
+        // CROPPER & PAINT LOGIC
         // ==========================================
+        
         function initCrop(idx) {
             cropIndex = idx;
-            document.getElementById('crop-image').src = URL.createObjectURL(state.dataset[idx].file);
-            document.getElementById('crop-modal').classList.remove('hidden');
-            if(cropperInstance) cropperInstance.destroy();
-            cropperInstance = new Cropper(document.getElementById('crop-image'), { viewMode: 1, autoCropArea: 0.9 });
+            const file = state.dataset[idx].file;
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            
+            img.onload = () => {
+                cropCanvas.width = img.width;
+                cropCanvas.height = img.height;
+                cropCtx = cropCanvas.getContext('2d');
+                cropCtx.drawImage(img, 0, 0);
+                
+                // Reset state
+                paintHistory = [cropCtx.getImageData(0,0, cropCanvas.width, cropCanvas.height)];
+                
+                document.getElementById('crop-modal').classList.remove('hidden');
+                
+                // Initialize in Crop Mode
+                setEditMode('crop');
+            };
+            img.src = url;
+            
+            // Set up paint listeners once
+            cropCanvas.onmousedown = startPaint;
+            cropCanvas.onmousemove = drawPaint;
+            cropCanvas.onmouseup = stopPaint;
+            cropCanvas.onmouseleave = stopPaint;
+            
+            // Touch support
+            cropCanvas.ontouchstart = (e) => { e.preventDefault(); startPaint(e.touches[0]); };
+            cropCanvas.ontouchmove = (e) => { e.preventDefault(); drawPaint(e.touches[0]); };
+            cropCanvas.ontouchend = (e) => { e.preventDefault(); stopPaint(); };
         }
+
+        function setEditMode(mode) {
+            editMode = mode;
+            const cropBtn = document.getElementById('tool-crop');
+            const paintBtn = document.getElementById('tool-paint');
+            const paintTools = document.getElementById('paint-tools');
+            
+            if (mode === 'crop') {
+                cropBtn.className = "bg-indigo-600 text-white px-3 py-1 rounded text-sm font-bold";
+                paintBtn.className = "bg-gray-700 text-gray-300 hover:text-white px-3 py-1 rounded text-sm font-bold";
+                paintTools.classList.add('hidden');
+                
+                if(!cropperInstance) {
+                     cropperInstance = new Cropper(cropCanvas, { 
+                        viewMode: 1, 
+                        autoCropArea: 0.9,
+                        background: false
+                     });
+                }
+            } else {
+                paintBtn.className = "bg-indigo-600 text-white px-3 py-1 rounded text-sm font-bold";
+                cropBtn.className = "bg-gray-700 text-gray-300 hover:text-white px-3 py-1 rounded text-sm font-bold";
+                paintTools.classList.remove('hidden');
+                
+                if(cropperInstance) {
+                    cropperInstance.destroy();
+                    cropperInstance = null;
+                }
+            }
+        }
+
+        function startPaint(e) {
+            if(editMode !== 'paint') return;
+            isPainting = true;
+            isDrawing = true; 
+            const rect = cropCanvas.getBoundingClientRect();
+            const scaleX = cropCanvas.width / rect.width;
+            const scaleY = cropCanvas.height / rect.height;
+            
+            cropCtx.beginPath();
+            cropCtx.moveTo((e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY);
+        }
+
+        function drawPaint(e) {
+            if(!isPainting || editMode !== 'paint') return;
+            const rect = cropCanvas.getBoundingClientRect();
+            const scaleX = cropCanvas.width / rect.width;
+            const scaleY = cropCanvas.height / rect.height;
+            const size = document.getElementById('brush-size').value;
+            const color = document.getElementById('paint-color').value;
+
+            cropCtx.lineWidth = size;
+            cropCtx.lineCap = 'round';
+            cropCtx.strokeStyle = color; 
+            
+            cropCtx.lineTo((e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY);
+            cropCtx.stroke();
+        }
+
+        function stopPaint() {
+            if(isPainting) {
+                isPainting = false;
+                if(isDrawing) {
+                    paintHistory.push(cropCtx.getImageData(0,0, cropCanvas.width, cropCanvas.height));
+                    if(paintHistory.length > 10) paintHistory.shift();
+                    isDrawing = false;
+                }
+            }
+        }
+
+        function undoPaint() {
+            if(paintHistory.length > 1) {
+                paintHistory.pop();
+                cropCtx.putImageData(paintHistory[paintHistory.length-1], 0, 0);
+            }
+        }
+
         function saveCrop() {
-            if(!cropperInstance || cropIndex === -1) return;
-            cropperInstance.getCroppedCanvas().toBlob((blob) => {
+            if(cropIndex === -1) return;
+            
+            let canvas;
+            if (editMode === 'crop' && cropperInstance) {
+                canvas = cropperInstance.getCroppedCanvas();
+            } else {
+                canvas = cropCanvas;
+            }
+
+            canvas.toBlob((blob) => {
                 const f = state.dataset[cropIndex].file;
                 const newFile = new File([blob], f.name, {type: 'image/jpeg'});
                 state.dataset[cropIndex].file = newFile;
-                // Update file size visual if we had one?
                 cancelCrop();
                 renderGrid();
             }, 'image/jpeg');
         }
+
         function cancelCrop() {
             document.getElementById('crop-modal').classList.add('hidden');
             if(cropperInstance) cropperInstance.destroy();
             cropperInstance = null;
             cropIndex = -1;
+            paintHistory = [];
         }
 
         // ==========================================
-        // EXPORT LOGIC (ZIP & FOLDER)
+        // EXPORT LOGIC
         // ==========================================
-        
         async function handleZipExport() {
             if(!state.dataset.length) return;
             showLoader("Zipping...");
             const zip = new JSZip();
-            
             state.dataset.forEach((item, i) => {
-                // Determine path: use relativePath if available (from folder upload), or just name if flat
-                // We do NOT add a root folder wrapper here, as requested.
                 let path = item.relativePath || item.file.name;
-                
-                // If it was a generic upload, allow using the file name directly at root
-                // If it was a folder upload, relativePath is usually "RootFolder/Sub/File.png"
-                
-                // Save Image
                 zip.file(path, item.file);
-                
-                // Save Text
-                // Replace extension logic
                 const dotIndex = path.lastIndexOf('.');
                 const txtPath = (dotIndex !== -1 ? path.substring(0, dotIndex) : path) + ".txt";
                 zip.file(txtPath, item.tags);
             });
-            
             const content = await zip.generateAsync({type:"blob"});
             const a = document.createElement('a');
             a.href = URL.createObjectURL(content);
-            a.download = "klok-dataset.zip"; // Generic name for the zip file itself
+            a.download = "klok-dataset.zip"; 
             a.click();
             hideLoader();
         }
@@ -1248,30 +1327,20 @@
             try {
                 const rootDirHandle = await window.showDirectoryPicker();
                 showLoader("Saving files...");
-                
                 for (let i = 0; i < state.dataset.length; i++) {
                     const item = state.dataset[i];
-                    // Path logic: "Root/Sub/Image.png" or just "Image.png"
                     let fullPath = item.relativePath || item.file.name;
-                    
-                    // Split into parts to handle directories
-                    // Note: webkitRelativePath often includes the top-level directory name selected
                     const parts = fullPath.split('/');
-                    const fileName = parts.pop(); // The actual file
-                    
-                    // Traverse/Create directories
+                    const fileName = parts.pop(); 
                     let currentDirHandle = rootDirHandle;
                     for(const dirName of parts) {
                         currentDirHandle = await currentDirHandle.getDirectoryHandle(dirName, { create: true });
                     }
-                    
-                    // Write Image
                     const imgHandle = await currentDirHandle.getFileHandle(fileName, { create: true });
                     const imgWritable = await imgHandle.createWritable();
                     await imgWritable.write(item.file);
                     await imgWritable.close();
                     
-                    // Write Text
                     const dotIndex = fileName.lastIndexOf('.');
                     const txtName = (dotIndex !== -1 ? fileName.substring(0, dotIndex) : fileName) + ".txt";
                     const txtHandle = await currentDirHandle.getFileHandle(txtName, { create: true });
@@ -1288,42 +1357,64 @@
         }
 
         // ==========================================
-        // PRESETS
+        // PRESETS (Updated)
         // ==========================================
         function loadPresets() {
-            const presets = Storage.get('tp_presets', {});
+            // Merge defaults with saved
+            let saved = Storage.get('tp_presets', {});
+            const allPresets = { ...DEFAULT_PRESETS, ...saved };
             const sel = document.getElementById('preset-selector');
             sel.innerHTML = '<option value="">Load Preset...</option>';
-            Object.keys(presets).forEach(k => { sel.innerHTML += `<option value="${k}">${k}</option>`; });
+            Object.keys(allPresets).forEach(k => { sel.innerHTML += `<option value="${k}">${k}</option>`; });
         }
+
         function saveCurrentPreset() {
             const name = prompt("Name this preset:");
             if(name) {
                 const presets = Storage.get('tp_presets', {});
-                presets[name] = { prompt: document.getElementById('task-prompt-input').value, limit: document.getElementById('task-limit-input').value };
+                presets[name] = { 
+                    prompt: document.getElementById('task-prompt-input').value, 
+                    limit: document.getElementById('task-limit-input').value,
+                    desc: document.getElementById('prompt-desc-input').value
+                };
                 Storage.set('tp_presets', presets);
                 loadPresets();
+                document.getElementById('preset-selector').value = name;
             }
         }
+
         function deleteCurrentPreset() {
             const name = document.getElementById('preset-selector').value;
+            if(DEFAULT_PRESETS[name]) return alert("Cannot delete built-in presets.");
+            
             if(name && confirm(`Delete preset "${name}"?`)) {
                 const presets = Storage.get('tp_presets', {});
                 delete presets[name];
                 Storage.set('tp_presets', presets);
                 loadPresets();
+                document.getElementById('prompt-desc-input').value = "";
+                document.getElementById('task-prompt-input').value = "";
             }
         }
+
         function loadSelectedPreset(e) {
             const name = e.target.value;
             if(name) {
-                const presets = Storage.get('tp_presets', {});
-                const data = presets[name];
-                if (typeof data === 'string') { document.getElementById('task-prompt-input').value = data; } 
-                else if (typeof data === 'object') {
-                     document.getElementById('task-prompt-input').value = data.prompt || "";
-                     if(data.limit) document.getElementById('task-limit-input').value = data.limit;
+                const saved = Storage.get('tp_presets', {});
+                const all = { ...DEFAULT_PRESETS, ...saved };
+                const data = all[name];
+                
+                if (data) {
+                    const promptText = typeof data === 'string' ? data : data.prompt;
+                    const descText = typeof data === 'object' ? data.desc : "";
+                    const limitVal = typeof data === 'object' ? data.limit : "";
+
+                    document.getElementById('task-prompt-input').value = promptText || "";
+                    document.getElementById('prompt-desc-input').value = descText || "";
+                    if(limitVal) document.getElementById('task-limit-input').value = limitVal;
                 }
+            } else {
+                 document.getElementById('prompt-desc-input').value = "";
             }
         }
 
