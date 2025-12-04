@@ -3,11 +3,16 @@
 **A powerful, browser-based tool for creating and managing training datasets for AI image generation, such as making LoRAs for the Z-Image model, Stable Diffusion, Flux, Illustrious, and more!**
 
 [![Join Discord](https://img.shields.io/badge/Discord-Join%20Umi%20AI-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/9K7j7DTfG2)
+
 ###[**Umi AI Comfy Wildcards**](https://github.com/Tinuva88/Comfy-UmiAI/tree/main/wildcards)
 
 Klok Caption Tagger (KCT) streamlines the tedious process of preparing images for training. It offers a suite of client-side tools including AI-powered auto-tagging, auto-captioning, and recursive folder management. It runs entirely in your browser, keeping your data private and secure.
 
-![Klok Caption Tagger UI](https://i.ibb.co/whbs8by3/tagpilot-gui.png) *Note: UI may vary slightly in newer versions.*
+<img width="1515" height="748" alt="image" src="https://github.com/user-attachments/assets/b8a60572-5891-492a-8c27-774c65bafea7" />
+
+<img width="901" height="735" alt="image" src="https://github.com/user-attachments/assets/92491a5c-e6a7-4953-b927-e93dd98f73ac" />
+
+<img width="1025" height="840" alt="image" src="https://github.com/user-attachments/assets/91f50e68-730d-4812-8d47-53ee1a46aeb2" />
 
 ## **Key Features**
 
