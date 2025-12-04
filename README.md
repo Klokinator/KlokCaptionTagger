@@ -8,13 +8,21 @@
 
 Klok Caption Tagger (KCT) streamlines the tedious process of preparing images for training. It offers a suite of client-side tools including AI-powered auto-tagging, auto-captioning, and recursive folder management. It runs entirely in your browser, keeping your data private and secure.
 
+### Upload images from a folder/directory, individual images and text files, or a zip file.
 <img width="1515" height="748" alt="image" src="https://github.com/user-attachments/assets/b8a60572-5891-492a-8c27-774c65bafea7" />
 
+### Choose from five free Gemini models, or input a paid api key for OpenAI or Claude's models.
 <img width="901" height="735" alt="image" src="https://github.com/user-attachments/assets/92491a5c-e6a7-4953-b927-e93dd98f73ac" />
 
-<img width="1025" height="840" alt="image" src="https://github.com/user-attachments/assets/91f50e68-730d-4812-8d47-53ee1a46aeb2" />
+### Built-in system prompts come with helpful descriptions you can edit or outright delete. Make your own!
+<img width="658" height="484" alt="image" src="https://github.com/user-attachments/assets/89637668-4c10-44ad-9c2f-383c32f1f061" />
 
-# NOTICE: [Please read this Wiki page](https://github.com/Klokinator/KlokCaptionTagger/wiki/Recommended-Prompts-for-Z%E2%80%90Image-Tagging) to learn about custom System Prompts I have pre-written for everyone!
+### Helpful information for new users who don't know how to caption properly!
+<img width="328" height="351" alt="image" src="https://github.com/user-attachments/assets/4a287b2c-27a0-4cb2-ac77-c9b25698d7c1" />
+
+### Crop images and edit out text/watermarks with a simple built-in Paint tool.
+<img width="192" height="63" alt="image" src="https://github.com/user-attachments/assets/08aeca45-25de-4f0b-bfa3-eeb5c49cd35b" />
+
 
 ## **Key Features**
 
