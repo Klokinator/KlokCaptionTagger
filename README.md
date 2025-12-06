@@ -6,7 +6,7 @@
 
 ### [**Umi AI Comfy Wildcards**](https://github.com/Tinuva88/Comfy-UmiAI/tree/main/wildcards)
 
-Klok Caption Tagger (KCT) streamlines the tedious process of preparing images for training. It offers a suite of client-side tools including AI-powered auto-tagging, auto-captioning, and recursive folder management. It runs entirely in your browser, keeping your data private and secure.
+Klok Caption Tagger (KCT) is a lightweight single-HTML-file that includes tools to allow simplified AI-powered auto-tagging, auto-captioning, cropping images, and blotting out watermarks. It runs in any browser and is ideal for tagging and captioning images while training loras or generating images locally. It's also great for using with low-end computers and laptops.
 
 ### Upload images from a folder/directory, individual images and text files, or a zip file.
 <img width="1515" height="748" alt="image" src="https://github.com/user-attachments/assets/b8a60572-5891-492a-8c27-774c65bafea7" />
